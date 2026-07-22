@@ -1,17 +1,19 @@
-import { boolean, numeric, pgSchema, text } from "drizzle-orm/pg-core"
+import { boolean, numeric, pgTable, text } from "drizzle-orm/pg-core"
 
 /**
  * Read-only references to the Paper Tiger dashboard tables in the `public`
  * schema. Crikket does NOT own or migrate these — they are the single source
- * of truth for projects and people, synced by the dashboard app. Defined here
- * (outside `src/schema/`, and `crikket`-scoped in drizzle.config) so drizzle-kit
- * never tries to manage them; used only for cross-schema joins.
+ * of truth for projects and people, synced by the dashboard app. Used only for
+ * cross-schema joins.
+ *
+ * NOTE: these MUST use `pgTable` (not `pgSchema("public")`) — drizzle throws at
+ * module load if you pass "public" to pgSchema, which crashes the whole server.
+ * The connection's search_path (crikket, public) resolves these unqualified
+ * names to `public` because the crikket schema has no projects/people tables.
  *
  * Only the columns Crikket needs are declared.
  */
-const paperTiger = pgSchema("public")
-
-export const ptProjects = paperTiger.table("projects", {
+export const ptProjects = pgTable("projects", {
   id: text("id").primaryKey(),
   name: text("name"),
   clientName: text("client_name"),
@@ -20,7 +22,7 @@ export const ptProjects = paperTiger.table("projects", {
   projectStatus: text("project_status"),
 })
 
-export const ptPeople = paperTiger.table("people", {
+export const ptPeople = pgTable("people", {
   id: text("id").primaryKey(),
   name: text("name"),
   email: text("email"),
