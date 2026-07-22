@@ -61,10 +61,18 @@ artifacts: `bug_report_log`, `bug_report_network_request`, `bug_report_action`.
   `high`, `critical`.
 - **Visibility:** `public`, `private` (defaults to `private`).
 
-### Capture keys & projects
-`capture_public_key` rows are **org‑scoped**, each with a `label` and an
-`allowed_origins` list. A "project" corresponds to a capture key: reports
-carry `capture_public_key_id` so they can be grouped by project.
+### Capture keys, projects & people (source of truth)
+`crikket.capture_public_key` rows are **org‑scoped** (`label` + `allowed_origins`).
+Reports carry `capture_public_key_id` (the submitting key). **Projects and people
+are NOT stored in the `crikket` schema** — they live in `public.projects` and
+`public.people` (the Paper Tiger dashboard, in the same DB) and are the single
+source of truth:
+- **Project of a report** = its capture key's `project_id` (`crikket.capture_public_key.project_id → public.projects`). A key is assigned to a project manually in key settings. The Projects nav lists only projects that have a key.
+- **Assignee** = `bug_report.assignee_id → public.people.id` (loose reference, resolved by join). Set via the assignee picker on a report.
+
+Cross‑schema reads use `packages/db/src/external/paper-tiger.ts` (drizzle refs
+for `public.projects`/`public.people`); drizzle‑kit is scoped to the `crikket`
+schema so it never manages those tables.
 
 ---
 
@@ -121,7 +129,11 @@ serves.
   filters, cards, and detail view (`/s/[id]`) live here. Stats come from
   `getBugReportDashboardStats` (`packages/bug-reports/src/procedures/list-bug-reports.ts`).
 - Sidebar nav: `apps/web/src/components/app-sidebar.tsx` (grouped sections —
-  "Platform", "Settings"; a "Projects" section is being added).
+  "Platform", "Projects" (projects with a Crikket key → `/projects/[id]`),
+  "Settings").
+- Views: the bug‑reports page has a **Table/Grid toggle**; the table groups by
+  Project / Assignee / Page with status count columns and a column‑toggle
+  "View" control. `/projects/[id]` reuses these views pre‑filtered to a project.
 
 ---
 
