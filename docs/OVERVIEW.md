@@ -70,9 +70,11 @@ source of truth:
 - **Project of a report** = its capture key's `project_id` (`crikket.capture_public_key.project_id → public.projects`). A key is assigned to a project manually in key settings. The Projects nav lists only projects that have a key.
 - **Assignee** = `bug_report.assignee_id → public.people.id` (loose reference, resolved by join). Set via the assignee picker on a report.
 
-Cross‑schema reads use `packages/db/src/external/paper-tiger.ts` (drizzle refs
-for `public.projects`/`public.people`); drizzle‑kit is scoped to the `crikket`
-schema so it never manages those tables.
+Cross‑schema reads use **raw SQL with an explicit `public.` qualifier** (the
+app connects with `search_path=crikket`). A cross‑schema drizzle table via
+`pgSchema("public")` is deliberately avoided — it throws at import and crashed
+the server. See `packages/bug-reports/src/procedures/people.ts` for the pattern.
+drizzle‑kit is scoped to the `crikket` schema so it never manages those tables.
 
 ---
 

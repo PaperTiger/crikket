@@ -1,18 +1,6 @@
 import { db } from "@crikket/db"
-import { ptPeople, ptProjects } from "@crikket/db/external/paper-tiger"
-import { bugReport, capturePublicKey } from "@crikket/db/schema/bug-report"
 import { BUG_REPORT_STATUS_OPTIONS } from "@crikket/shared/constants/bug-report"
-import {
-  and,
-  count,
-  eq,
-  ilike,
-  inArray,
-  ne,
-  or,
-  type SQL,
-  sql,
-} from "drizzle-orm"
+import { type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 import { protectedProcedure } from "./context"
 import { requireActiveOrgId } from "./helpers"
@@ -32,7 +20,7 @@ const groupByValues = Object.values(BUG_REPORT_GROUP_BY_OPTIONS) as [
 ]
 
 export interface BugReportGroupRow {
-  /** Raw group id (capture key id / assignee user id / page url); null = ungrouped. */
+  /** Raw group id (project id / assignee people id / page url); null = ungrouped. */
   groupKey: string | null
   /** Human label for the group row. */
   groupLabel: string
@@ -54,23 +42,20 @@ const getBugReportGroupedStatsInputSchema = z.object({
   groupBy: z.enum(groupByValues).default(BUG_REPORT_GROUP_BY_OPTIONS.project),
   includeClosed: z.boolean().default(false),
   search: z.string().trim().max(200).optional(),
-  // Scope the stats to reports whose capture key is assigned to this project.
-  projectId: z.string().min(1).optional(),
 })
 
-function normalizeInt(value: number | string | null | undefined): number {
-  if (value === null || value === undefined) {
-    return 0
-  }
-  const parsed = typeof value === "string" ? Number.parseInt(value, 10) : value
-  return Number.isFinite(parsed) ? parsed : 0
+interface RawGroupRow {
+  groupKey: string | null
+  groupLabel: string | null
+  toDo: number
+  inProgress: number
+  clientReview: number
+  blocked: number
+  done: number
+  closed: number
+  total: number
 }
 
-function statusCount(status: string): SQL<number> {
-  return sql<number>`sum(case when ${bugReport.status} = ${status} then 1 else 0 end)`
-}
-
-/** Empty-string page urls should read as "Unknown page", null keys as their fallback. */
 function resolveLabel(
   groupBy: BugReportGroupBy,
   key: string | null,
@@ -82,117 +67,73 @@ function resolveLabel(
   if (groupBy === "project") {
     return key ? (label ?? "Unknown project") : "No project"
   }
-  // page
   return key && key.length > 0 ? key : "Unknown page"
 }
 
+// Cross-schema reads use raw SQL with an explicit `public.` qualifier (the app
+// connects with search_path=crikket). See people.ts for the rationale.
 export const getBugReportGroupedStats = protectedProcedure
   .input(getBugReportGroupedStatsInputSchema)
   .handler(async ({ context, input }): Promise<BugReportGroupedStats> => {
     const activeOrgId = requireActiveOrgId(context.session)
+    const term = input.search ? `%${input.search}%` : undefined
 
-    const conditions: SQL[] = [eq(bugReport.organizationId, activeOrgId)]
-    if (!input.includeClosed) {
-      conditions.push(ne(bugReport.status, BUG_REPORT_STATUS_OPTIONS.closed))
-    }
-    if (input.search) {
-      const term = `%${input.search}%`
-      const searchCondition = or(
-        ilike(bugReport.title, term),
-        ilike(bugReport.description, term),
-        ilike(bugReport.url, term)
-      )
-      if (searchCondition) {
-        conditions.push(searchCondition)
-      }
-    }
-    if (input.projectId) {
-      conditions.push(
-        inArray(
-          bugReport.capturePublicKeyId,
-          db
-            .select({ id: capturePublicKey.id })
-            .from(capturePublicKey)
-            .where(eq(capturePublicKey.projectId, input.projectId))
-        )
-      )
-    }
+    const whereSql = sql`b."organization_id" = ${activeOrgId}
+      ${input.includeClosed ? sql`` : sql`and b."status" <> ${BUG_REPORT_STATUS_OPTIONS.closed}`}
+      ${
+        term
+          ? sql`and (b."title" ilike ${term} or b."description" ilike ${term} or b."url" ilike ${term})`
+          : sql``
+      }`
 
-    const counts = {
-      toDo: statusCount(BUG_REPORT_STATUS_OPTIONS.toDo),
-      inProgress: statusCount(BUG_REPORT_STATUS_OPTIONS.inProgress),
-      clientReview: statusCount(BUG_REPORT_STATUS_OPTIONS.clientReview),
-      blocked: statusCount(BUG_REPORT_STATUS_OPTIONS.blocked),
-      done: statusCount(BUG_REPORT_STATUS_OPTIONS.done),
-      closed: statusCount(BUG_REPORT_STATUS_OPTIONS.closed),
-      total: count(),
-    }
+    const countCols = sql`
+      sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.toDo} then 1 else 0 end)::int as "toDo",
+      sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.inProgress} then 1 else 0 end)::int as "inProgress",
+      sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.clientReview} then 1 else 0 end)::int as "clientReview",
+      sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.blocked} then 1 else 0 end)::int as "blocked",
+      sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.done} then 1 else 0 end)::int as "done",
+      sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.closed} then 1 else 0 end)::int as "closed",
+      count(*)::int as "total"`
 
-    // Page groups on the URL minus its query string so a route batches together.
-    const pageKey = sql<string>`split_part(coalesce(${bugReport.url}, ''), '?', 1)`
-
-    let rawRows: Array<{
-      groupKey: string | null
-      groupLabel: string | null
-      toDo: number
-      inProgress: number
-      clientReview: number
-      blocked: number
-      done: number
-      closed: number
-      total: number
-    }>
-
+    let query: SQL
     if (input.groupBy === "assignee") {
-      rawRows = await db
-        .select({
-          groupKey: bugReport.assigneeId,
-          groupLabel: ptPeople.name,
-          ...counts,
-        })
-        .from(bugReport)
-        .leftJoin(ptPeople, eq(bugReport.assigneeId, ptPeople.id))
-        .where(and(...conditions))
-        .groupBy(bugReport.assigneeId, ptPeople.name)
+      query = sql`
+        select b."assignee_id" as "groupKey", pe."name" as "groupLabel", ${countCols}
+        from "bug_report" b
+        left join "public"."people" pe on b."assignee_id" = pe."id"
+        where ${whereSql}
+        group by b."assignee_id", pe."name"`
     } else if (input.groupBy === "page") {
-      rawRows = await db
-        .select({
-          groupKey: pageKey,
-          groupLabel: pageKey,
-          ...counts,
-        })
-        .from(bugReport)
-        .where(and(...conditions))
-        .groupBy(pageKey)
+      const pageKey = sql`split_part(coalesce(b."url", ''), '?', 1)`
+      query = sql`
+        select ${pageKey} as "groupKey", ${pageKey} as "groupLabel", ${countCols}
+        from "bug_report" b
+        where ${whereSql}
+        group by ${pageKey}`
     } else {
-      // Project = the project the report's capture key is assigned to.
-      rawRows = await db
-        .select({
-          groupKey: capturePublicKey.projectId,
-          groupLabel: ptProjects.name,
-          ...counts,
-        })
-        .from(bugReport)
-        .leftJoin(
-          capturePublicKey,
-          eq(bugReport.capturePublicKeyId, capturePublicKey.id)
-        )
-        .leftJoin(ptProjects, eq(capturePublicKey.projectId, ptProjects.id))
-        .where(and(...conditions))
-        .groupBy(capturePublicKey.projectId, ptProjects.name)
+      query = sql`
+        select k."project_id" as "groupKey", p."name" as "groupLabel", ${countCols}
+        from "bug_report" b
+        left join "capture_public_key" k on b."capture_public_key_id" = k."id"
+        left join "public"."projects" p on k."project_id" = p."id"
+        where ${whereSql}
+        group by k."project_id", p."name"`
     }
+
+    const result = await db.execute(query)
+    const rawRows = result.rows as unknown as RawGroupRow[]
 
     const rows: BugReportGroupRow[] = rawRows
       .map((row) => ({
         groupKey: row.groupKey,
         groupLabel: resolveLabel(input.groupBy, row.groupKey, row.groupLabel),
-        toDo: normalizeInt(row.toDo),
-        inProgress: normalizeInt(row.inProgress),
-        clientReview: normalizeInt(row.clientReview),
-        blocked: normalizeInt(row.blocked),
-        done: normalizeInt(row.done),
-        closed: normalizeInt(row.closed),
-        total: normalizeInt(row.total),
+        toDo: Number(row.toDo ?? 0),
+        inProgress: Number(row.inProgress ?? 0),
+        clientReview: Number(row.clientReview ?? 0),
+        blocked: Number(row.blocked ?? 0),
+        done: Number(row.done ?? 0),
+        closed: Number(row.closed ?? 0),
+        total: Number(row.total ?? 0),
       }))
       .sort((a, b) => b.total - a.total)
 

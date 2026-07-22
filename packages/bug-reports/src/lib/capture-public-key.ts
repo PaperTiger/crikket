@@ -1,8 +1,7 @@
 import { db } from "@crikket/db"
-import { ptProjects } from "@crikket/db/external/paper-tiger"
 import { capturePublicKey } from "@crikket/db/schema/bug-report"
 import { retryOnUniqueViolation } from "@crikket/shared/lib/server/retry-on-unique-violation"
-import { and, desc, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
 const PUBLIC_KEY_PREFIX = "crk"
@@ -182,19 +181,41 @@ async function findActiveCapturePublicKeyForOrigin(input: {
 export async function listCapturePublicKeys(input: {
   organizationId: string
 }): Promise<CapturePublicKeyRecord[]> {
-  const rows = await db
-    .select({
-      record: capturePublicKey,
-      projectName: ptProjects.name,
-    })
-    .from(capturePublicKey)
-    .leftJoin(ptProjects, eq(capturePublicKey.projectId, ptProjects.id))
-    .where(eq(capturePublicKey.organizationId, input.organizationId))
-    .orderBy(desc(capturePublicKey.updatedAt), desc(capturePublicKey.createdAt))
+  const records = await db.query.capturePublicKey.findMany({
+    where: eq(capturePublicKey.organizationId, input.organizationId),
+    orderBy: (table, { desc: descFn }) => [
+      descFn(table.updatedAt),
+      descFn(table.createdAt),
+    ],
+  })
 
-  return rows.map((row) => ({
-    ...toCapturePublicKeyRecord(row.record),
-    projectName: row.projectName ?? null,
+  // Resolve assigned project names from public.projects (search_path is
+  // crikket, so read the dashboard's public schema with explicit raw SQL).
+  const projectIds = [
+    ...new Set(
+      records
+        .map((record) => record.projectId)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ]
+  const projectNameById = new Map<string, string>()
+  if (projectIds.length > 0) {
+    const projectRows = await db.execute(sql`
+      select "id", "name" from "public"."projects" where "id" = any(${projectIds})
+    `)
+    for (const row of projectRows.rows as Array<{
+      id: string
+      name: string | null
+    }>) {
+      projectNameById.set(row.id, row.name ?? "")
+    }
+  }
+
+  return records.map((record) => ({
+    ...toCapturePublicKeyRecord(record),
+    projectName: record.projectId
+      ? (projectNameById.get(record.projectId) ?? null)
+      : null,
   }))
 }
 
