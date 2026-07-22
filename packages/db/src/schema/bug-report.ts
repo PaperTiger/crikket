@@ -20,8 +20,16 @@ export const bugReport = pgTable(
     reporterId: text("reporter_id").references(() => user.id, {
       onDelete: "set null",
     }),
+    assigneeId: text("assignee_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    capturePublicKeyId: text("capture_public_key_id").references(
+      () => capturePublicKey.id,
+      { onDelete: "set null" }
+    ),
     title: text("title"),
     description: text("description"),
+    category: text("category"), // feature, bug, content, question
     status: text("status").default("to_do").notNull(), // to_do, in_progress, client_review, blocked, done, closed
     priority: text("priority").default("none").notNull(), // none, low, medium, high, critical
     tags: text("tags").array(),
@@ -55,6 +63,8 @@ export const bugReport = pgTable(
   (table) => [
     index("bug_report_organizationId_idx").on(table.organizationId),
     index("bug_report_reporterId_idx").on(table.reporterId),
+    index("bug_report_assigneeId_idx").on(table.assigneeId),
+    index("bug_report_capturePublicKeyId_idx").on(table.capturePublicKeyId),
     index("bug_report_submissionStatus_idx").on(table.submissionStatus),
     index("bug_report_debuggerIngestionStatus_idx").on(
       table.debuggerIngestionStatus
@@ -72,8 +82,13 @@ export const bugReportUploadSession = pgTable(
     reporterId: text("reporter_id").references(() => user.id, {
       onDelete: "set null",
     }),
+    capturePublicKeyId: text("capture_public_key_id").references(
+      () => capturePublicKey.id,
+      { onDelete: "set null" }
+    ),
     title: text("title"),
     description: text("description"),
+    category: text("category"),
     priority: text("priority").default("none").notNull(),
     tags: text("tags").array(),
     url: text("url"),
@@ -243,6 +258,14 @@ export const bugReportRelations = relations(bugReport, ({ one, many }) => ({
   reporter: one(user, {
     fields: [bugReport.reporterId],
     references: [user.id],
+  }),
+  assignee: one(user, {
+    fields: [bugReport.assigneeId],
+    references: [user.id],
+  }),
+  capturePublicKey: one(capturePublicKey, {
+    fields: [bugReport.capturePublicKeyId],
+    references: [capturePublicKey.id],
   }),
   logs: many(bugReportLog),
   networkRequests: many(bugReportNetworkRequest),
