@@ -15,6 +15,8 @@ import {
 import { useDataTable } from "@crikket/ui/hooks/use-data-table"
 import { useQuery } from "@tanstack/react-query"
 import { Search } from "lucide-react"
+import type { Route } from "next"
+import { useRouter } from "next/navigation"
 import type { ReactNode } from "react"
 import * as React from "react"
 
@@ -33,6 +35,7 @@ export function BugReportsGroupedTable({
   filtersState,
   viewToggle,
 }: BugReportsGroupedTableProps) {
+  const router = useRouter()
   const { group, includeClosed, debouncedSearch, forcedProjectId } =
     filtersState
 
@@ -164,8 +167,15 @@ export function BugReportsGroupedTable({
           onRowClick={(row) => {
             const { groupKey } = row.original
             // Ungrouped buckets ("No project" / "Unassigned") have no concrete
-            // key to filter on, so only grouped rows drill down.
-            if (groupKey) {
+            // key to filter on, so only grouped rows are actionable.
+            if (!groupKey) {
+              return
+            }
+            // A project has its own page (which opens on the table view); go
+            // there. Assignee/page have no page, so filter the grid in place.
+            if (group === "project") {
+              router.push(`/projects/${groupKey}` as Route)
+            } else {
               filtersState.drillDownInto(group, groupKey)
             }
           }}

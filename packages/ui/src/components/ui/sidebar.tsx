@@ -520,7 +520,12 @@ function SidebarMenuButton({
       },
       props
     ),
-    render: !tooltip ? render : TooltipTrigger,
+    // With a tooltip, the button must still render as the caller's element
+    // (e.g. a Next.js Link) — wrap that element as the tooltip trigger rather
+    // than replacing it, otherwise the href/handler is dropped.
+    render: tooltip
+      ? (triggerProps) => <TooltipTrigger render={render} {...triggerProps} />
+      : render,
     state: {
       slot: "sidebar-menu-button",
       sidebar: "menu-button",
