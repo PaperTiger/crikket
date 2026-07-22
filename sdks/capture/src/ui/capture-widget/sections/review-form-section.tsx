@@ -8,7 +8,6 @@ import {
 import { MediaPreview } from "../components/media-preview"
 import { Button } from "../components/primitives/button"
 import { Field, FieldError } from "../components/primitives/field"
-import { Input } from "../components/primitives/input"
 import { Label } from "../components/primitives/label"
 import { Textarea } from "../components/primitives/textarea"
 import { SummaryStat } from "../components/summary-stat"
@@ -107,30 +106,11 @@ export function ReviewFormSection({
           ) : null}
 
           <form className="grid gap-4" onSubmit={form.handleSubmit}>
-            <Field data-invalid={Boolean(form.visibleErrors.title)}>
-              <Label htmlFor={`${formKey}-title`}>Title</Label>
-              <Input
-                aria-invalid={Boolean(form.visibleErrors.title)}
-                id={`${formKey}-title`}
-                maxLength={200}
-                onBlur={() => {
-                  form.touchField("title")
-                }}
-                onChange={(event) => {
-                  form.setFieldValue("title", event.currentTarget.value)
-                }}
-                placeholder="Enter a title (optional)"
-                value={form.draft.title}
-              />
-              {form.visibleErrors.title ? (
-                <FieldError errors={[form.visibleErrors.title]} />
-              ) : null}
-            </Field>
-
             <Field data-invalid={Boolean(form.visibleErrors.description)}>
               <Label htmlFor={`${formKey}-description`}>Description</Label>
               <Textarea
                 aria-invalid={Boolean(form.visibleErrors.description)}
+                aria-required="true"
                 className="min-h-32 resize-y"
                 id={`${formKey}-description`}
                 maxLength={4000}
@@ -140,7 +120,7 @@ export function ReviewFormSection({
                 onChange={(event) => {
                   form.setFieldValue("description", event.currentTarget.value)
                 }}
-                placeholder="Enter a description (optional)"
+                placeholder="Describe the issue"
                 value={form.draft.description}
               />
               {form.visibleErrors.description ? (

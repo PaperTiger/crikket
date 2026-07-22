@@ -59,7 +59,8 @@ describe("capture SDK screenshot flow", () => {
       warnings: sdkTestState.reviewSnapshot.warnings,
     })
     expect(sdkTestState.uiHidden).toEqual([true, false])
-    expect(sdkTestState.titlePrefills).toEqual(["Buggy Checkout"])
+    // Title is no longer auto-prefilled — it is generated from content later.
+    expect(sdkTestState.titlePrefills).toEqual([])
 
     const submitResult = await capture.submit({
       title: " Checkout submit is broken ",

@@ -33,7 +33,9 @@ export function validateReviewDraft(
     errors.title = "Title must be at most 200 characters."
   }
 
-  if (value.description.length > 3000) {
+  if (value.description.trim().length === 0) {
+    errors.description = "Please describe the issue."
+  } else if (value.description.length > 3000) {
     errors.description = "Description must be at most 3000 characters."
   }
 

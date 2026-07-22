@@ -346,7 +346,8 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       warnings: review.warnings,
       summary: review.debuggerSummary,
     })
-    this.prefillTitle()
+    // Title is intentionally left blank — the reporter fills the description
+    // and the title is generated from the content later.
   }
 
   private abortActiveRecording(): void {
@@ -365,15 +366,6 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
 
   private setUiHidden(hidden: boolean): void {
     this.mountedUi?.setHidden(hidden)
-  }
-
-  private prefillTitle(): void {
-    const captureTitle = document.title.trim()
-    if (captureTitle.length === 0) {
-      return
-    }
-
-    this.mountedUi?.store.setTitleIfEmpty(captureTitle)
   }
 
   private getRuntimeConfig(): CaptureRuntimeConfig {
