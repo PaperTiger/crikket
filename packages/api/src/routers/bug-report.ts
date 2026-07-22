@@ -3,6 +3,7 @@ import {
   deleteBugReportsBulk,
 } from "@crikket/bug-reports/procedures/delete-bug-reports"
 import { getBugReportById } from "@crikket/bug-reports/procedures/get-bug-report"
+import { getBugReportGroupedStats } from "@crikket/bug-reports/procedures/grouped-stats"
 import {
   getBugReportDebuggerEvents,
   getBugReportNetworkRequestPayload,
@@ -37,6 +38,7 @@ export const bugReportRouter = {
   getNetworkRequests: getBugReportNetworkRequests,
   getNetworkRequestPayload: getBugReportNetworkRequestPayload,
   getDashboardStats: getBugReportDashboardStats,
+  getGroupedStats: getBugReportGroupedStats,
   delete: deleteBugReport,
   deleteBulk: deleteBugReportsBulk,
   update: updateBugReport,
