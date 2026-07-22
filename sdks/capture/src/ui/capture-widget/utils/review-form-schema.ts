@@ -1,4 +1,5 @@
 import {
+  BUG_REPORT_CATEGORY_OPTIONS,
   BUG_REPORT_VISIBILITY_OPTIONS,
   type BugReportVisibility,
 } from "@crikket/shared/constants/bug-report"
@@ -9,12 +10,22 @@ import {
 import type { CaptureSubmissionDraft } from "../../../types"
 
 const priorityValues = new Set<string>(Object.values(PRIORITY_OPTIONS))
+const categoryValues = new Set<string>(
+  Object.values(BUG_REPORT_CATEGORY_OPTIONS)
+)
 const visibilityValues = new Set<string>(
   Object.values(BUG_REPORT_VISIBILITY_OPTIONS)
 )
 export type ReviewDraftErrors = Partial<
   Record<keyof CaptureSubmissionDraft, string>
 >
+
+export const captureCategoryOptions = [
+  { label: "Feature", value: BUG_REPORT_CATEGORY_OPTIONS.feature },
+  { label: "Bug", value: BUG_REPORT_CATEGORY_OPTIONS.bug },
+  { label: "Content", value: BUG_REPORT_CATEGORY_OPTIONS.content },
+  { label: "Question", value: BUG_REPORT_CATEGORY_OPTIONS.question },
+] as const
 
 export const capturePriorityOptions = [
   { label: "Critical", value: PRIORITY_OPTIONS.critical },
@@ -39,6 +50,10 @@ export function validateReviewDraft(
     errors.description = "Description must be at most 3000 characters."
   }
 
+  if (!categoryValues.has(value.category)) {
+    errors.category = "Select a valid category."
+  }
+
   if (!priorityValues.has(value.priority)) {
     errors.priority = "Select a valid priority."
   }
@@ -57,6 +72,7 @@ export function trimReviewDraftForSubmission(
   draft: CaptureSubmissionDraft
 ): CaptureSubmissionDraft {
   return {
+    category: draft.category,
     description: draft.description.trim(),
     priority: draft.priority,
     title: draft.title.trim(),

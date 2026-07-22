@@ -1,3 +1,4 @@
+import type { BugReportCategory } from "@crikket/shared/constants/bug-report"
 import type * as eagerCapture from "./eager"
 
 export type CaptureType = "video" | "screenshot"
@@ -112,6 +113,7 @@ export interface CaptureDebuggerSummary {
 export interface CaptureSubmissionDraft {
   title: string
   description: string
+  category: BugReportCategory
   priority: CapturePriority
   visibility?: CaptureReportVisibility
 }
@@ -122,6 +124,7 @@ export interface CaptureSubmitRequest {
     captureType: CaptureType
     title: string
     description: string
+    category: BugReportCategory
     priority: CapturePriority
     visibility: CaptureReportVisibility
     pageUrl: string

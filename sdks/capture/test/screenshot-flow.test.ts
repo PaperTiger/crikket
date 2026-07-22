@@ -65,6 +65,7 @@ describe("capture SDK screenshot flow", () => {
     const submitResult = await capture.submit({
       title: " Checkout submit is broken ",
       description: " Description from regression test ",
+      category: "bug",
       priority: "high",
     })
 
@@ -84,6 +85,7 @@ describe("capture SDK screenshot flow", () => {
         captureType: "screenshot",
         title: "Checkout submit is broken",
         description: "Description from regression test",
+        category: "bug",
         priority: "high",
         visibility: "private",
         pageTitle: "Buggy Checkout",

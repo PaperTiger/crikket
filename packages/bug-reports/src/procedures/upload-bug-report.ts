@@ -23,6 +23,7 @@ export const createBugReportUpload = protectedProcedure
       organizationId: activeOrgId,
       reporterId: context.session.user.id,
       tags: normalizeTags(input.tags),
+      capturePublicKeyId: null,
     })
   })
 

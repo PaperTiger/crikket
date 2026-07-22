@@ -10,6 +10,16 @@ export const BUG_REPORT_STATUS_OPTIONS = {
 export type BugReportStatus =
   (typeof BUG_REPORT_STATUS_OPTIONS)[keyof typeof BUG_REPORT_STATUS_OPTIONS]
 
+export const BUG_REPORT_CATEGORY_OPTIONS = {
+  feature: "feature",
+  bug: "bug",
+  content: "content",
+  question: "question",
+} as const
+
+export type BugReportCategory =
+  (typeof BUG_REPORT_CATEGORY_OPTIONS)[keyof typeof BUG_REPORT_CATEGORY_OPTIONS]
+
 export const BUG_REPORT_VISIBILITY_OPTIONS = {
   public: "public",
   private: "private",

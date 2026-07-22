@@ -12,7 +12,10 @@ import { Label } from "../components/primitives/label"
 import { Textarea } from "../components/primitives/textarea"
 import { SummaryStat } from "../components/summary-stat"
 import { useReviewForm } from "../hooks/use-review-form"
-import { capturePriorityOptions } from "../utils/review-form-schema"
+import {
+  captureCategoryOptions,
+  capturePriorityOptions,
+} from "../utils/review-form-schema"
 
 interface ReviewFormSectionProps {
   formKey: string
@@ -125,6 +128,35 @@ export function ReviewFormSection({
               />
               {form.visibleErrors.description ? (
                 <FieldError errors={[form.visibleErrors.description]} />
+              ) : null}
+            </Field>
+
+            <Field data-invalid={Boolean(form.visibleErrors.category)}>
+              <Label htmlFor={`${formKey}-category`}>Category</Label>
+              <select
+                aria-invalid={Boolean(form.visibleErrors.category)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                id={`${formKey}-category`}
+                onBlur={() => {
+                  form.touchField("category")
+                }}
+                onChange={(event) => {
+                  form.setFieldValue(
+                    "category",
+                    event.currentTarget
+                      .value as CaptureSubmissionDraft["category"]
+                  )
+                }}
+                value={form.draft.category}
+              >
+                {captureCategoryOptions.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.label}
+                  </option>
+                ))}
+              </select>
+              {form.visibleErrors.category ? (
+                <FieldError errors={[form.visibleErrors.category]} />
               ) : null}
             </Field>
 

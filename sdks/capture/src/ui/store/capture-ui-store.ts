@@ -1,4 +1,7 @@
-import { BUG_REPORT_VISIBILITY_OPTIONS } from "@crikket/shared/constants/bug-report"
+import {
+  BUG_REPORT_CATEGORY_OPTIONS,
+  BUG_REPORT_VISIBILITY_OPTIONS,
+} from "@crikket/shared/constants/bug-report"
 import { PRIORITY_OPTIONS } from "@crikket/shared/constants/priorities"
 import type {
   CaptureDebuggerSummary,
@@ -52,6 +55,7 @@ export function createCaptureUiStore(): CaptureUiStore {
       reviewDraft: {
         title: "",
         description: "",
+        category: BUG_REPORT_CATEGORY_OPTIONS.bug,
         priority: DEFAULT_PRIORITY,
         visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
       },
@@ -150,6 +154,7 @@ function createInitialState(): CaptureUiState {
     reviewDraft: {
       title: "",
       description: "",
+      category: BUG_REPORT_CATEGORY_OPTIONS.bug,
       priority: DEFAULT_PRIORITY,
       visibility: BUG_REPORT_VISIBILITY_OPTIONS.private,
     },

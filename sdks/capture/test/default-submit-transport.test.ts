@@ -16,6 +16,7 @@ const request = {
     captureType: "screenshot",
     title: "Checkout issue",
     description: "Button is disabled",
+    category: "bug",
     priority: "high",
     visibility: "public",
     pageUrl: "https://example.com/checkout",

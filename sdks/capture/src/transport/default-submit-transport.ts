@@ -106,6 +106,7 @@ export async function defaultSubmitTransport(
 function buildUploadSessionRequest(request: CaptureSubmitRequest): {
   attachmentType: CaptureSubmitRequest["report"]["captureType"]
   captureContentType?: string
+  category: CaptureSubmitRequest["report"]["category"]
   description: string
   debuggerSummary: CaptureSubmitRequest["report"]["debuggerSummary"]
   deviceInfo?: CaptureSubmitRequest["report"]["deviceInfo"]
@@ -127,6 +128,7 @@ function buildUploadSessionRequest(request: CaptureSubmitRequest): {
   return {
     title: request.report.title,
     description: request.report.description,
+    category: request.report.category,
     priority: request.report.priority,
     visibility: request.report.visibility,
     attachmentType: request.report.captureType,

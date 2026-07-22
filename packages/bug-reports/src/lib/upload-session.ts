@@ -4,8 +4,10 @@ import {
   bugReportUploadSession,
 } from "@crikket/db/schema/bug-report"
 import {
+  BUG_REPORT_CATEGORY_OPTIONS,
   BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+  type BugReportCategory,
 } from "@crikket/shared/constants/bug-report"
 import {
   PRIORITY_OPTIONS,
@@ -43,6 +45,11 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   ...Priority[],
 ]
 
+const categoryValues = Object.values(BUG_REPORT_CATEGORY_OPTIONS) as [
+  BugReportCategory,
+  ...BugReportCategory[],
+]
+
 const MAX_CONTENT_TYPE_LENGTH = 120
 const MAX_CONTENT_ENCODING_LENGTH = 40
 const BUG_REPORT_UPLOAD_SESSION_TTL_MS = 24 * 60 * 60 * 1000
@@ -57,6 +64,7 @@ export const createBugReportUploadSessionInputSchema = z.object({
   title: optionalText(200),
   description: optionalText(3000),
   priority: z.enum(priorityValues).default(PRIORITY_OPTIONS.none),
+  category: z.enum(categoryValues).optional(),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   url: z.string().url().optional(),
   attachmentType: z.enum(["video", "screenshot"]),
@@ -136,6 +144,7 @@ export async function createBugReportUploadSession(input: {
   organizationId: string
   reporterId?: string | null
   tags?: string[] | undefined
+  capturePublicKeyId?: string | null
 }): Promise<{
   bugReportId: string
   captureUpload: {
@@ -184,6 +193,8 @@ export async function createBugReportUploadSession(input: {
       title: inferredTitle,
       description: input.input.description,
       priority: input.input.priority,
+      category: input.input.category ?? null,
+      capturePublicKeyId: input.capturePublicKeyId ?? null,
       tags: input.tags,
       url: input.input.url,
       attachmentType: input.input.attachmentType,
@@ -339,6 +350,8 @@ export async function finalizeBugReportUpload(input: {
       title: uploadSession.title,
       description: uploadSession.description,
       priority: uploadSession.priority,
+      category: uploadSession.category,
+      capturePublicKeyId: uploadSession.capturePublicKeyId,
       tags: uploadSession.tags,
       url: uploadSession.url,
       attachmentType: uploadSession.attachmentType,

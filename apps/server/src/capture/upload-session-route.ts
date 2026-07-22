@@ -77,6 +77,7 @@ export async function handleCaptureUploadSession(input: {
       input: requestBody,
       organizationId: authorization.organizationId,
       reporterId: null,
+      capturePublicKeyId: authorization.publicKeyId,
     })
 
     const finalizeAuthorization = createCaptureFinalizeToken({
