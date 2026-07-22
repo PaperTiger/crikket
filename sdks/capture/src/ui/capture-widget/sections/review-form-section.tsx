@@ -152,7 +152,7 @@ export function ReviewFormSection({
               <Label htmlFor={`${formKey}-priority`}>Priority</Label>
               <select
                 aria-invalid={Boolean(form.visibleErrors.priority)}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 id={`${formKey}-priority`}
                 onBlur={() => {
                   form.touchField("priority")

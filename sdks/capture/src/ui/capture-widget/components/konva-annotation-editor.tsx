@@ -252,7 +252,7 @@ export const KonvaAnnotationEditor = forwardRef<
               <button
                 aria-label={`Emoji ${emoji}`}
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-md border text-base transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                  "flex h-8 w-8 items-center justify-center rounded-md border text-base outline-none transition-transform focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
                   activeEmoji === emoji
                     ? "scale-110 border-foreground bg-muted"
                     : "border-border"
@@ -300,7 +300,9 @@ function ToolButton(props: {
     <Button
       className={cn(
         "gap-2",
-        props.active ? "border-transparent bg-foreground text-background" : null
+        props.active
+          ? "border-transparent bg-primary text-primary-foreground"
+          : null
       )}
       disabled={props.disabled}
       onClick={props.onClick}
@@ -325,7 +327,7 @@ function ColorButton(props: {
     <button
       aria-label={props.label}
       className={cn(
-        "h-5 w-5 rounded-full border transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+        "h-5 w-5 rounded-full border outline-none transition-transform focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         props.active ? "scale-110 border-foreground" : "border-border"
       )}
       disabled={props.disabled}
