@@ -6,19 +6,25 @@ import { Input } from "@crikket/ui/components/ui/input"
 import { Textarea } from "@crikket/ui/components/ui/textarea"
 import { useForm } from "@tanstack/react-form"
 
-import { captureKeyCreateFormSchema } from "@/lib/schema/settings"
+import { captureKeyDetailsFormSchema } from "@/lib/schema/settings"
 
+import { ProjectCombobox } from "../components/project-combobox"
 import { formatPublicKeyOrigins, parsePublicKeyOrigins } from "../utils"
 
 interface PublicKeyFormProps {
   defaultValues: {
     allowedOrigins: string[]
     label: string
+    projectId: string | null
+    projectName: string | null
   }
+  /** Show the project picker (edit dialog only — create does not assign a project). */
+  enableProject?: boolean
   isPending: boolean
   onSubmit: (input: {
     allowedOrigins: string[]
     label: string
+    projectId: string | null
   }) => Promise<void>
   submitLabel: string
   submittingLabel: string
@@ -29,6 +35,7 @@ const DEFAULT_ORIGINS_PLACEHOLDER =
 
 export function PublicKeyForm({
   defaultValues,
+  enableProject = false,
   isPending,
   onSubmit,
   submitLabel,
@@ -38,14 +45,17 @@ export function PublicKeyForm({
     defaultValues: {
       allowedOrigins: formatPublicKeyOrigins(defaultValues.allowedOrigins),
       label: defaultValues.label,
+      projectId: defaultValues.projectId,
+      projectName: defaultValues.projectName,
     },
     validators: {
-      onChange: captureKeyCreateFormSchema,
+      onChange: captureKeyDetailsFormSchema,
     },
     onSubmit: async ({ value }) => {
       await onSubmit({
         allowedOrigins: parsePublicKeyOrigins(value.allowedOrigins),
         label: value.label,
+        projectId: value.projectId,
       })
     },
   })
@@ -110,6 +120,29 @@ export function PublicKeyForm({
           )
         }}
       </form.Field>
+
+      {enableProject ? (
+        <form.Field name="projectId">
+          {(field) => (
+            <Field>
+              <FieldLabel htmlFor={field.name}>Project</FieldLabel>
+              <ProjectCombobox
+                disabled={isPending}
+                onChange={(projectId, projectName) => {
+                  field.handleChange(projectId)
+                  form.setFieldValue("projectName", projectName)
+                }}
+                selectedName={form.state.values.projectName}
+                value={field.state.value}
+              />
+              <p className="text-muted-foreground text-xs">
+                Link this key to a Paper Tiger project so its reports appear
+                under Projects in the sidebar.
+              </p>
+            </Field>
+          )}
+        </form.Field>
+      ) : null}
 
       <div className="flex justify-end">
         <Button disabled={isPending || form.state.isSubmitting} type="submit">

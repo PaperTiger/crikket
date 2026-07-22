@@ -279,6 +279,7 @@ export function BugReportCard({
           status: report.status,
           priority: report.priority,
           visibility: report.visibility,
+          assigneeId: report.assigneeId,
         }}
       />
     </Card>

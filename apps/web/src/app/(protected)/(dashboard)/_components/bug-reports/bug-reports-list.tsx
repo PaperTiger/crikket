@@ -6,8 +6,13 @@ import { BugReportsGroupedTable } from "./bug-reports-grouped-table"
 import { BugReportsViewToggle } from "./bug-reports-view-toggle"
 import { VIEW_OPTIONS } from "./filters"
 
-export function BugReportsList() {
-  const filtersState = useBugReportsFilters()
+interface BugReportsListProps {
+  /** When set, pins every view to a single project (project detail page). */
+  forcedProjectId?: string
+}
+
+export function BugReportsList({ forcedProjectId }: BugReportsListProps = {}) {
+  const filtersState = useBugReportsFilters({ forcedProjectId })
 
   const viewToggle = (
     <BugReportsViewToggle

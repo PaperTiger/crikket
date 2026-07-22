@@ -2,7 +2,17 @@ import { db } from "@crikket/db"
 import { ptPeople, ptProjects } from "@crikket/db/external/paper-tiger"
 import { bugReport, capturePublicKey } from "@crikket/db/schema/bug-report"
 import { BUG_REPORT_STATUS_OPTIONS } from "@crikket/shared/constants/bug-report"
-import { and, count, eq, ilike, ne, or, type SQL, sql } from "drizzle-orm"
+import {
+  and,
+  count,
+  eq,
+  ilike,
+  inArray,
+  ne,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm"
 import { z } from "zod"
 import { protectedProcedure } from "./context"
 import { requireActiveOrgId } from "./helpers"
@@ -44,6 +54,8 @@ const getBugReportGroupedStatsInputSchema = z.object({
   groupBy: z.enum(groupByValues).default(BUG_REPORT_GROUP_BY_OPTIONS.project),
   includeClosed: z.boolean().default(false),
   search: z.string().trim().max(200).optional(),
+  // Scope the stats to reports whose capture key is assigned to this project.
+  projectId: z.string().min(1).optional(),
 })
 
 function normalizeInt(value: number | string | null | undefined): number {
@@ -93,6 +105,17 @@ export const getBugReportGroupedStats = protectedProcedure
       if (searchCondition) {
         conditions.push(searchCondition)
       }
+    }
+    if (input.projectId) {
+      conditions.push(
+        inArray(
+          bugReport.capturePublicKeyId,
+          db
+            .select({ id: capturePublicKey.id })
+            .from(capturePublicKey)
+            .where(eq(capturePublicKey.projectId, input.projectId))
+        )
+      )
     }
 
     const counts = {

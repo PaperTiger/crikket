@@ -1,4 +1,5 @@
 import { db } from "@crikket/db"
+import { ptProjects } from "@crikket/db/external/paper-tiger"
 import { capturePublicKey } from "@crikket/db/schema/bug-report"
 import { retryOnUniqueViolation } from "@crikket/shared/lib/server/retry-on-unique-violation"
 import { and, desc, eq } from "drizzle-orm"
@@ -22,6 +23,10 @@ export interface CapturePublicKeyRecord {
   key: string
   label: string
   organizationId: string
+  // The public.projects id (Paper Tiger dashboard) this key is assigned to, and
+  // its resolved name (only populated by listCapturePublicKeys, else null).
+  projectId: string | null
+  projectName: string | null
   revokedAt: Date | null
   rotatedAt: Date | null
   status: CapturePublicKeyStatus
@@ -128,6 +133,8 @@ function toCapturePublicKeyRecord(
     key: record.key,
     label: record.label,
     organizationId: record.organizationId,
+    projectId: record.projectId ?? null,
+    projectName: null,
     revokedAt: record.revokedAt,
     rotatedAt: record.rotatedAt,
     status: record.status as CapturePublicKeyStatus,
@@ -175,15 +182,20 @@ async function findActiveCapturePublicKeyForOrigin(input: {
 export async function listCapturePublicKeys(input: {
   organizationId: string
 }): Promise<CapturePublicKeyRecord[]> {
-  const records = await db.query.capturePublicKey.findMany({
-    where: eq(capturePublicKey.organizationId, input.organizationId),
-    orderBy: [
-      desc(capturePublicKey.updatedAt),
-      desc(capturePublicKey.createdAt),
-    ],
-  })
+  const rows = await db
+    .select({
+      record: capturePublicKey,
+      projectName: ptProjects.name,
+    })
+    .from(capturePublicKey)
+    .leftJoin(ptProjects, eq(capturePublicKey.projectId, ptProjects.id))
+    .where(eq(capturePublicKey.organizationId, input.organizationId))
+    .orderBy(desc(capturePublicKey.updatedAt), desc(capturePublicKey.createdAt))
 
-  return records.map(toCapturePublicKeyRecord)
+  return rows.map((row) => ({
+    ...toCapturePublicKeyRecord(row.record),
+    projectName: row.projectName ?? null,
+  }))
 }
 
 export async function ensureCapturePublicKeyForSite(
@@ -306,6 +318,7 @@ export async function updateCapturePublicKeyDetails(input: {
   keyId: string
   label: string
   organizationId: string
+  projectId?: string | null
 }): Promise<CapturePublicKeyRecord | null> {
   const allowedOrigins = requireCaptureOrigins(input.allowedOrigins)
   const label = normalizeCaptureKeyLabelValue(input.label)
@@ -314,12 +327,23 @@ export async function updateCapturePublicKeyDetails(input: {
     throw new Error("Capture key label is required.")
   }
 
+  const setValues: {
+    allowedOrigins: string[]
+    label: string
+    projectId?: string | null
+  } = {
+    allowedOrigins,
+    label,
+  }
+
+  // Only touch projectId when the caller supplies it; `null` clears the link.
+  if (input.projectId !== undefined) {
+    setValues.projectId = input.projectId
+  }
+
   const [updatedRecord] = await db
     .update(capturePublicKey)
-    .set({
-      allowedOrigins,
-      label,
-    })
+    .set(setValues)
     .where(
       and(
         eq(capturePublicKey.id, input.keyId),

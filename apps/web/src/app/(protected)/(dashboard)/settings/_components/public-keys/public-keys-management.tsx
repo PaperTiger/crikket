@@ -153,7 +153,10 @@ export function PublicKeysManagement({
               defaultValues={{
                 allowedOrigins: editingItem.allowedOrigins,
                 label: editingItem.label,
+                projectId: editingItem.projectId,
+                projectName: editingItem.projectName,
               }}
+              enableProject
               isPending={
                 !canManage ||
                 (updateMutation.isPending && updatingKeyId === editingItem.id)

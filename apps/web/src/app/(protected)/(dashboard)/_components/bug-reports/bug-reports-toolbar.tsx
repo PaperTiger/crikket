@@ -61,16 +61,21 @@ interface BugReportsToolbarProps {
   onToggleVisibility: (value: BugReportVisibility) => void
   onClearFilters: () => void
   onClearDrillDown?: () => void
+  /** Suppress the project drill-down chip when the project is a fixed context. */
+  hideProjectDrillDown?: boolean
 }
 
-function formatDrillDownLabel(drillDown: DashboardDrillDown): string | null {
+function formatDrillDownLabel(
+  drillDown: DashboardDrillDown,
+  hideProjectDrillDown: boolean
+): string | null {
   if (drillDown.pageUrl) {
     return `Page: ${drillDown.pageUrl}`
   }
   if (drillDown.assigneeId) {
     return "Filtered by person"
   }
-  if (drillDown.projectId) {
+  if (drillDown.projectId && !hideProjectDrillDown) {
     return "Filtered by project"
   }
   return null
@@ -97,11 +102,15 @@ export function BugReportsToolbar({
   onToggleVisibility,
   onClearFilters,
   onClearDrillDown,
+  hideProjectDrillDown = false,
 }: BugReportsToolbarProps) {
   const activeFilters = countActiveFilters(filters)
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort"
-  const drillDownLabel = formatDrillDownLabel(filters.drillDown)
+  const drillDownLabel = formatDrillDownLabel(
+    filters.drillDown,
+    hideProjectDrillDown
+  )
 
   return (
     <div className="space-y-3 rounded-lg border bg-card p-3">

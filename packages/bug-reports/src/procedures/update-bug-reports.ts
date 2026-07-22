@@ -24,6 +24,9 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
 
 const tagsInputSchema = z.array(z.string().trim().min(1).max(40)).max(20)
 
+// A public.people id (Paper Tiger dashboard). `null` clears the assignee.
+const assigneeIdInputSchema = z.string().min(1).nullable()
+
 const bugReportUpdateInputSchema = z
   .object({
     id: z.string().min(1),
@@ -32,6 +35,7 @@ const bugReportUpdateInputSchema = z
     priority: z.enum(priorityValues).optional(),
     visibility: z.enum(visibilityValues).optional(),
     tags: tagsInputSchema.optional(),
+    assigneeId: assigneeIdInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -39,7 +43,8 @@ const bugReportUpdateInputSchema = z
       value.status === undefined &&
       value.priority === undefined &&
       value.visibility === undefined &&
-      value.tags === undefined
+      value.tags === undefined &&
+      value.assigneeId === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -55,13 +60,15 @@ const bugReportBulkUpdateInputSchema = z
     priority: z.enum(priorityValues).optional(),
     visibility: z.enum(visibilityValues).optional(),
     tags: tagsInputSchema.optional(),
+    assigneeId: assigneeIdInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (
       value.status === undefined &&
       value.priority === undefined &&
       value.visibility === undefined &&
-      value.tags === undefined
+      value.tags === undefined &&
+      value.assigneeId === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -76,6 +83,7 @@ function buildUpdateValues(input: {
   priority?: Priority
   visibility?: (typeof visibilityValues)[number]
   tags?: string[]
+  assigneeId?: string | null
 }) {
   const values: {
     title?: string
@@ -83,6 +91,7 @@ function buildUpdateValues(input: {
     priority?: string
     visibility?: string
     tags?: string[]
+    assigneeId?: string | null
   } = {}
 
   if (input.title !== undefined) {
@@ -103,6 +112,10 @@ function buildUpdateValues(input: {
 
   if (input.tags !== undefined) {
     values.tags = normalizeTags(input.tags) ?? []
+  }
+
+  if (input.assigneeId !== undefined) {
+    values.assigneeId = input.assigneeId
   }
 
   return values

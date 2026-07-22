@@ -19,9 +19,13 @@ export function PublicKeyCreateForm({
       defaultValues={{
         allowedOrigins: [],
         label: "",
+        projectId: null,
+        projectName: null,
       }}
       isPending={isPending}
-      onSubmit={onSubmit}
+      onSubmit={({ allowedOrigins, label }) =>
+        onSubmit({ allowedOrigins, label })
+      }
       submitLabel="Create key"
       submittingLabel="Creating..."
     />

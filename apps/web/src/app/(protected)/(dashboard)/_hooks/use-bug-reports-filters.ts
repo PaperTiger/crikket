@@ -91,7 +91,17 @@ const CLEARED_DRILL_DOWN: {
   pageUrl: null,
 }
 
-export function useBugReportsFilters() {
+interface UseBugReportsFiltersOptions {
+  /**
+   * When set (project detail page), the project is a fixed context: it is always
+   * applied to the data query but never surfaced as a clearable drill-down, and
+   * the default group-by falls back to Assignee since grouping by project is moot.
+   */
+  forcedProjectId?: string
+}
+
+export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
+  const forcedProjectId = options?.forcedProjectId
   const [
     {
       view,
@@ -159,15 +169,20 @@ export function useBugReportsFilters() {
 
   const drillDown = useMemo(
     () => ({
-      projectId: projectId ?? undefined,
+      // A forced project always wins over any URL-provided projectId.
+      projectId: forcedProjectId ?? projectId ?? undefined,
       assigneeId: assigneeId ?? undefined,
       pageUrl: pageUrl ?? undefined,
     }),
-    [projectId, assigneeId, pageUrl]
+    [forcedProjectId, projectId, assigneeId, pageUrl]
   )
 
+  // The forced project is fixed context, not a user drill-down: exclude it so no
+  // clear chip appears and "has drill-down" only reflects assignee/page filters.
   const hasDrillDown = Boolean(
-    drillDown.projectId || drillDown.assigneeId || drillDown.pageUrl
+    (forcedProjectId ? false : drillDown.projectId) ||
+      drillDown.assigneeId ||
+      drillDown.pageUrl
   )
 
   const filters = useMemo<DashboardFilters>(
@@ -184,12 +199,20 @@ export function useBugReportsFilters() {
     [filters, hasDrillDown]
   )
 
+  // On a project page, grouping by project yields a single row, so default to
+  // Assignee instead until the user picks another grouping.
+  const effectiveGroup =
+    forcedProjectId && group === GROUP_BY_OPTIONS.project
+      ? GROUP_BY_OPTIONS.assignee
+      : group
+
   return {
+    forcedProjectId,
     view,
     setView: (value: DashboardView) => {
       setFilterSearchQuery({ view: value }).catch(() => undefined)
     },
-    group,
+    group: effectiveGroup,
     setGroup: (value: BugReportGroupBy) => {
       setFilterSearchQuery({ group: value }).catch(() => undefined)
     },

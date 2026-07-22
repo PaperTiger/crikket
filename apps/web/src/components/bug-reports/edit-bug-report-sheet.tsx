@@ -34,6 +34,7 @@ import { toast } from "sonner"
 
 import { editBugReportFormSchema } from "@/lib/schema/bug-report"
 import { client } from "@/utils/orpc"
+import { AssigneeCombobox } from "./assignee-combobox"
 
 const statusOptions: Array<{ label: string; value: BugReportStatus }> = [
   { label: "To do", value: BUG_REPORT_STATUS_OPTIONS.toDo },
@@ -96,6 +97,7 @@ interface EditBugReportSheetProps {
     status: BugReportStatus
     priority: Priority
     visibility: BugReportVisibility
+    assigneeId?: string | null
   }
 }
 
@@ -114,6 +116,7 @@ export function EditBugReportSheet({
       status: report.status,
       priority: report.priority,
       visibility: report.visibility,
+      assigneeId: report.assigneeId ?? null,
     },
     validators: {
       onChange: editBugReportFormSchema,
@@ -129,6 +132,7 @@ export function EditBugReportSheet({
           status: value.status,
           priority: value.priority,
           visibility: value.visibility,
+          assigneeId: value.assigneeId,
         })
         await onUpdated?.()
         toast.success("Bug report updated")
@@ -150,6 +154,7 @@ export function EditBugReportSheet({
       status: report.status,
       priority: report.priority,
       visibility: report.visibility,
+      assigneeId: report.assigneeId ?? null,
     })
   }
 
@@ -315,6 +320,18 @@ export function EditBugReportSheet({
                       ))}
                     </SelectContent>
                   </Select>
+                </Field>
+              )}
+            </form.Field>
+
+            <form.Field name="assigneeId">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>Assignee</FieldLabel>
+                  <AssigneeCombobox
+                    onChange={(assigneeId) => field.handleChange(assigneeId)}
+                    value={field.state.value}
+                  />
                 </Field>
               )}
             </form.Field>

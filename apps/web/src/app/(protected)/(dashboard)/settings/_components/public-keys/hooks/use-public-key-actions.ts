@@ -23,6 +23,7 @@ export function usePublicKeyActions() {
       keyId: string
       label: string
       allowedOrigins: string[]
+      projectId?: string | null
     }) => client.captureKey.update(input),
     onSuccess: async () => {
       await queryClient.invalidateQueries()

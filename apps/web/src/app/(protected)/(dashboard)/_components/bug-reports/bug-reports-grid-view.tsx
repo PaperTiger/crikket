@@ -53,6 +53,7 @@ export function BugReportsGridView({
     >
       <BugReportsToolbar
         filters={filtersState.filters}
+        hideProjectDrillDown={Boolean(filtersState.forcedProjectId)}
         onClearDrillDown={filtersState.clearDrillDown}
         onClearFilters={filtersState.clearFilters}
         onSearchChange={filtersState.setSearchValue}

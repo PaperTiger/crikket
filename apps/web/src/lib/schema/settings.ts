@@ -54,6 +54,11 @@ export const captureKeyCreateFormSchema = z.object({
     }),
 })
 
+export const captureKeyDetailsFormSchema = captureKeyCreateFormSchema.extend({
+  projectId: z.string().nullable(),
+  projectName: z.string().nullable(),
+})
+
 export const captureKeyOriginsFormSchema = z.object({
   allowedOrigins: z
     .string()

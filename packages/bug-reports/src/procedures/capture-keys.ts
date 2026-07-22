@@ -33,6 +33,8 @@ const updateCaptureKeyOriginsInputSchema = captureKeyIdSchema.extend({
 const updateCaptureKeyDetailsInputSchema = captureKeyIdSchema.extend({
   allowedOrigins: captureKeyOriginsSchema,
   label: z.string().trim().min(1).max(80),
+  // A public.projects id (Paper Tiger dashboard). `null` clears the assignment.
+  projectId: z.string().min(1).nullable().optional(),
 })
 
 function rethrowCaptureKeyInputError(error: unknown): never {
@@ -104,6 +106,7 @@ export const updateCaptureKeyDetails = protectedProcedure
         keyId: input.keyId,
         label: input.label,
         organizationId,
+        projectId: input.projectId,
       })
     } catch (error) {
       rethrowCaptureKeyInputError(error)

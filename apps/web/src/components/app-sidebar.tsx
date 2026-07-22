@@ -14,10 +14,13 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@crikket/ui/components/ui/sidebar"
+import { Skeleton } from "@crikket/ui/components/ui/skeleton"
+import { useQuery } from "@tanstack/react-query"
 import {
   BookOpen,
   Building2,
   CreditCard,
+  FolderKanban,
   KeyRound,
   UserRound,
   Video,
@@ -28,6 +31,7 @@ import { usePathname } from "next/navigation"
 import type * as React from "react"
 import { TeamSwitcher } from "@/components/team-switcher"
 import { UserNav } from "@/components/user-nav"
+import { orpc } from "@/utils/orpc"
 
 type Organization = typeof authClient.$Infer.Organization
 
@@ -81,6 +85,61 @@ const navSecondary = [
   },
 ] as const
 
+function ProjectsNavGroup({ pathname }: { pathname: string }) {
+  const projectsQuery = useQuery(orpc.project.list.queryOptions())
+  const projects = projectsQuery.data ?? []
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>Projects</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {projectsQuery.isLoading ? (
+            ["p1", "p2", "p3"].map((skeletonKey) => (
+              <SidebarMenuItem key={skeletonKey}>
+                <div className="flex h-8 items-center gap-2 px-2">
+                  <Skeleton className="size-4 rounded-sm" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </SidebarMenuItem>
+            ))
+          ) : projects.length === 0 ? (
+            <SidebarMenuItem>
+              <span className="px-2 py-1.5 text-muted-foreground text-xs">
+                No projects yet
+              </span>
+            </SidebarMenuItem>
+          ) : (
+            projects.map((project) => {
+              const url = `/projects/${project.id}`
+
+              return (
+                <SidebarMenuItem key={project.id}>
+                  <SidebarMenuButton
+                    isActive={pathname === url}
+                    render={(menuProps) => (
+                      <Link href={url as Route} {...menuProps} />
+                    )}
+                    tooltip={project.name}
+                  >
+                    <FolderKanban />
+                    <span className="truncate">{project.name}</span>
+                    {project.keyCount > 0 ? (
+                      <span className="ml-auto text-muted-foreground text-xs tabular-nums">
+                        {project.keyCount}
+                      </span>
+                    ) : null}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })
+          )}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  )
+}
+
 export function AppSidebar({
   user,
   organizations,
@@ -126,6 +185,7 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <ProjectsNavGroup pathname={pathname} />
         <SidebarGroup>
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarGroupContent>

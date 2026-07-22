@@ -79,6 +79,16 @@ export function createPublicKeysTableColumns({
       ),
     },
     {
+      accessorKey: "projectName",
+      header: "Project",
+      cell: ({ row }) =>
+        row.original.projectName ? (
+          <span className="text-sm">{row.original.projectName}</span>
+        ) : (
+          <span className="text-muted-foreground text-sm">No project</span>
+        ),
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (

@@ -33,7 +33,8 @@ export function BugReportsGroupedTable({
   filtersState,
   viewToggle,
 }: BugReportsGroupedTableProps) {
-  const { group, includeClosed, debouncedSearch } = filtersState
+  const { group, includeClosed, debouncedSearch, forcedProjectId } =
+    filtersState
 
   const groupedQuery = useQuery(
     orpc.bugReport.getGroupedStats.queryOptions({
@@ -41,9 +42,15 @@ export function BugReportsGroupedTable({
         groupBy: group,
         includeClosed,
         search: debouncedSearch || undefined,
+        projectId: filtersState.filters.drillDown.projectId,
       },
     })
   )
+
+  // On a project page the project is fixed, so drop the Project grouping option.
+  const groupByOptions = forcedProjectId
+    ? GROUP_BY_SELECT_OPTIONS.filter((option) => option.value !== "project")
+    : GROUP_BY_SELECT_OPTIONS
 
   const rows = React.useMemo<BugReportGroupRow[]>(
     () => groupedQuery.data?.rows ?? [],
@@ -103,7 +110,7 @@ export function BugReportsGroupedTable({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {GROUP_BY_SELECT_OPTIONS.map((option) => (
+              {groupByOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

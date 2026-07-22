@@ -62,6 +62,7 @@ export interface BugReportListItem {
   priority: Priority
   tags: string[]
   url: string | undefined
+  assigneeId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -193,6 +194,7 @@ interface BugReportListRecord {
   priority: string
   tags: string[] | null
   url: string | null
+  assigneeId: string | null
   createdAt: Date
   updatedAt: Date
   reporter: {
@@ -262,6 +264,7 @@ async function mapBugReportListItem(
     priority: normalizePriority(report.priority),
     tags: Array.isArray(report.tags) ? report.tags : [],
     url: report.url ?? undefined,
+    assigneeId: report.assigneeId,
     uploader,
     createdAt: report.createdAt.toISOString(),
     updatedAt: report.updatedAt.toISOString(),
