@@ -31,10 +31,12 @@ import {
   Tag,
   TriangleAlert,
   UserRound,
+  X,
 } from "lucide-react"
 import type { ReactNode } from "react"
 
 import {
+  type DashboardDrillDown,
   type DashboardFilters,
   formatPriorityLabel,
   formatStatusLabel,
@@ -51,12 +53,27 @@ interface BugReportsToolbarProps {
   sort: BugReportSort
   filters: DashboardFilters
   stats?: BugReportStats
+  viewToggle?: ReactNode
   onSearchChange: (value: string) => void
   onSortChange: (value: BugReportSort) => void
   onToggleStatus: (value: BugReportStatus) => void
   onTogglePriority: (value: Priority) => void
   onToggleVisibility: (value: BugReportVisibility) => void
   onClearFilters: () => void
+  onClearDrillDown?: () => void
+}
+
+function formatDrillDownLabel(drillDown: DashboardDrillDown): string | null {
+  if (drillDown.pageUrl) {
+    return `Page: ${drillDown.pageUrl}`
+  }
+  if (drillDown.assigneeId) {
+    return "Filtered by person"
+  }
+  if (drillDown.capturePublicKeyId) {
+    return "Filtered by project"
+  }
+  return null
 }
 
 function countActiveFilters(filters: DashboardFilters): number {
@@ -72,16 +89,19 @@ export function BugReportsToolbar({
   sort,
   filters,
   stats,
+  viewToggle,
   onSearchChange,
   onSortChange,
   onToggleStatus,
   onTogglePriority,
   onToggleVisibility,
   onClearFilters,
+  onClearDrillDown,
 }: BugReportsToolbarProps) {
   const activeFilters = countActiveFilters(filters)
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort"
+  const drillDownLabel = formatDrillDownLabel(filters.drillDown)
 
   return (
     <div className="space-y-3 rounded-lg border bg-card p-3">
@@ -97,6 +117,7 @@ export function BugReportsToolbar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {viewToggle}
           <Select
             onValueChange={(value) => onSortChange(value as BugReportSort)}
             value={sort}
@@ -197,6 +218,16 @@ export function BugReportsToolbar({
           label="Total"
           value={stats?.total ?? 0}
         />
+        {drillDownLabel ? (
+          <button
+            className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs hover:bg-muted/70"
+            onClick={onClearDrillDown}
+            type="button"
+          >
+            <span className="max-w-[240px] truncate">{drillDownLabel}</span>
+            <X className="size-3" />
+          </button>
+        ) : null}
         {filters.statuses.map((status) => (
           <Pill key={status}>{formatStatusLabel(status)}</Pill>
         ))}

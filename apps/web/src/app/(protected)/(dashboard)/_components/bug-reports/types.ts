@@ -9,3 +9,9 @@ export type BugReportListItem = BugReportListResponse["items"][number]
 export type BugReportStats = Awaited<
   ReturnType<AppRouterClient["bugReport"]["getDashboardStats"]>
 >
+
+export type BugReportGroupedStats = Awaited<
+  ReturnType<AppRouterClient["bugReport"]["getGroupedStats"]>
+>
+
+export type BugReportGroupRow = BugReportGroupedStats["rows"][number]

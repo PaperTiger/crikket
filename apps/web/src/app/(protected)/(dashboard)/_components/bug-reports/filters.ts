@@ -54,16 +54,62 @@ export const SORT_OPTIONS: Array<{ value: BugReportSort; label: string }> = [
   },
 ]
 
+export const VIEW_OPTIONS = {
+  table: "table",
+  grid: "grid",
+} as const
+
+export type DashboardView = (typeof VIEW_OPTIONS)[keyof typeof VIEW_OPTIONS]
+
+export const GROUP_BY_OPTIONS = {
+  project: "project",
+  assignee: "assignee",
+  page: "page",
+} as const
+
+export type BugReportGroupBy =
+  (typeof GROUP_BY_OPTIONS)[keyof typeof GROUP_BY_OPTIONS]
+
+export const GROUP_BY_SELECT_OPTIONS: Array<{
+  value: BugReportGroupBy
+  label: string
+}> = [
+  { value: GROUP_BY_OPTIONS.project, label: "Project" },
+  { value: GROUP_BY_OPTIONS.assignee, label: "Assignee" },
+  { value: GROUP_BY_OPTIONS.page, label: "Page" },
+]
+
+/** Header label for the group-label column, driven by the active group-by. */
+export function formatGroupColumnHeader(groupBy: BugReportGroupBy): string {
+  switch (groupBy) {
+    case GROUP_BY_OPTIONS.assignee:
+      return "Person"
+    case GROUP_BY_OPTIONS.page:
+      return "Page"
+    default:
+      return "Project"
+  }
+}
+
+/** Drill-down filters set when a group row is clicked in the table view. */
+export interface DashboardDrillDown {
+  capturePublicKeyId?: string
+  assigneeId?: string
+  pageUrl?: string
+}
+
 export interface DashboardFilters {
   statuses: BugReportStatus[]
   priorities: Priority[]
   visibilities: BugReportVisibility[]
+  drillDown: DashboardDrillDown
 }
 
 export const EMPTY_FILTERS: DashboardFilters = {
   statuses: [],
   priorities: [],
   visibilities: [],
+  drillDown: {},
 }
 
 export function formatStatusLabel(status: BugReportStatus): string {
