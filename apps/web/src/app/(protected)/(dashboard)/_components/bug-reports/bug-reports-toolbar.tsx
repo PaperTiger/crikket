@@ -70,7 +70,7 @@ function formatDrillDownLabel(drillDown: DashboardDrillDown): string | null {
   if (drillDown.assigneeId) {
     return "Filtered by person"
   }
-  if (drillDown.capturePublicKeyId) {
+  if (drillDown.projectId) {
     return "Filtered by project"
   }
   return null

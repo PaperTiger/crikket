@@ -1,8 +1,8 @@
 import { db } from "@crikket/db"
-import { user } from "@crikket/db/schema/auth"
+import { ptPeople, ptProjects } from "@crikket/db/external/paper-tiger"
 import { bugReport, capturePublicKey } from "@crikket/db/schema/bug-report"
 import { BUG_REPORT_STATUS_OPTIONS } from "@crikket/shared/constants/bug-report"
-import { type SQL, and, count, eq, ilike, ne, or, sql } from "drizzle-orm"
+import { and, count, eq, ilike, ne, or, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 import { protectedProcedure } from "./context"
 import { requireActiveOrgId } from "./helpers"
@@ -124,13 +124,13 @@ export const getBugReportGroupedStats = protectedProcedure
       rawRows = await db
         .select({
           groupKey: bugReport.assigneeId,
-          groupLabel: user.name,
+          groupLabel: ptPeople.name,
           ...counts,
         })
         .from(bugReport)
-        .leftJoin(user, eq(bugReport.assigneeId, user.id))
+        .leftJoin(ptPeople, eq(bugReport.assigneeId, ptPeople.id))
         .where(and(...conditions))
-        .groupBy(bugReport.assigneeId, user.name)
+        .groupBy(bugReport.assigneeId, ptPeople.name)
     } else if (input.groupBy === "page") {
       rawRows = await db
         .select({
@@ -142,10 +142,11 @@ export const getBugReportGroupedStats = protectedProcedure
         .where(and(...conditions))
         .groupBy(pageKey)
     } else {
+      // Project = the project the report's capture key is assigned to.
       rawRows = await db
         .select({
-          groupKey: bugReport.capturePublicKeyId,
-          groupLabel: capturePublicKey.label,
+          groupKey: capturePublicKey.projectId,
+          groupLabel: ptProjects.name,
           ...counts,
         })
         .from(bugReport)
@@ -153,8 +154,9 @@ export const getBugReportGroupedStats = protectedProcedure
           capturePublicKey,
           eq(bugReport.capturePublicKeyId, capturePublicKey.id)
         )
+        .leftJoin(ptProjects, eq(capturePublicKey.projectId, ptProjects.id))
         .where(and(...conditions))
-        .groupBy(bugReport.capturePublicKeyId, capturePublicKey.label)
+        .groupBy(capturePublicKey.projectId, ptProjects.name)
     }
 
     const rows: BugReportGroupRow[] = rawRows

@@ -35,7 +35,7 @@ export function useBugReportsData({
           filters.priorities.length > 0 ? filters.priorities : undefined,
         visibilities:
           filters.visibilities.length > 0 ? filters.visibilities : undefined,
-        capturePublicKeyId: filters.drillDown.capturePublicKeyId,
+        projectId: filters.drillDown.projectId,
         assigneeId: filters.drillDown.assigneeId,
         pageUrl: filters.drillDown.pageUrl,
       }),

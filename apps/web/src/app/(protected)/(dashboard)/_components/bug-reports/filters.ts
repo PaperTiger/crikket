@@ -93,7 +93,7 @@ export function formatGroupColumnHeader(groupBy: BugReportGroupBy): string {
 
 /** Drill-down filters set when a group row is clicked in the table view. */
 export interface DashboardDrillDown {
-  capturePublicKeyId?: string
+  projectId?: string
   assigneeId?: string
   pageUrl?: string
 }

@@ -82,11 +82,11 @@ const EMPTY_DASHBOARD_FILTERS: DashboardFilters = {
 }
 
 const CLEARED_DRILL_DOWN: {
-  capturePublicKeyId: string | null
+  projectId: string | null
   assigneeId: string | null
   pageUrl: string | null
 } = {
-  capturePublicKeyId: null,
+  projectId: null,
   assigneeId: null,
   pageUrl: null,
 }
@@ -102,7 +102,7 @@ export function useBugReportsFilters() {
       statuses,
       priorities,
       visibilities,
-      capturePublicKeyId,
+      projectId,
       assigneeId,
       pageUrl,
     },
@@ -133,7 +133,7 @@ export function useBugReportsFilters() {
       visibilities: parseAsArrayOf(parseAsStringLiteral(VISIBILITY_VALUES))
         .withOptions({ clearOnDefault: true })
         .withDefault([]),
-      capturePublicKeyId: parseAsString.withOptions({ clearOnDefault: true }),
+      projectId: parseAsString.withOptions({ clearOnDefault: true }),
       assigneeId: parseAsString.withOptions({ clearOnDefault: true }),
       pageUrl: parseAsString.withOptions({ clearOnDefault: true }),
     },
@@ -159,15 +159,15 @@ export function useBugReportsFilters() {
 
   const drillDown = useMemo(
     () => ({
-      capturePublicKeyId: capturePublicKeyId ?? undefined,
+      projectId: projectId ?? undefined,
       assigneeId: assigneeId ?? undefined,
       pageUrl: pageUrl ?? undefined,
     }),
-    [capturePublicKeyId, assigneeId, pageUrl]
+    [projectId, assigneeId, pageUrl]
   )
 
   const hasDrillDown = Boolean(
-    drillDown.capturePublicKeyId || drillDown.assigneeId || drillDown.pageUrl
+    drillDown.projectId || drillDown.assigneeId || drillDown.pageUrl
   )
 
   const filters = useMemo<DashboardFilters>(
@@ -206,7 +206,7 @@ export function useBugReportsFilters() {
       } else if (groupBy === GROUP_BY_OPTIONS.page) {
         next.pageUrl = groupKey
       } else {
-        next.capturePublicKeyId = groupKey
+        next.projectId = groupKey
       }
 
       setFilterSearchQuery({ ...next, view: VIEW_OPTIONS.grid }).catch(

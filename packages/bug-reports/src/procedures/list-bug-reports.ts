@@ -1,5 +1,5 @@
 import { db } from "@crikket/db"
-import { bugReport } from "@crikket/db/schema/bug-report"
+import { bugReport, capturePublicKey } from "@crikket/db/schema/bug-report"
 import {
   BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SORT_OPTIONS,
@@ -100,6 +100,7 @@ const listBugReportsInputSchema = z
       .max(visibilityValues.length)
       .optional(),
     // Group filters (used by grouped table drill-down and per-project views).
+    projectId: z.string().min(1).optional(),
     capturePublicKeyId: z.string().min(1).optional(),
     assigneeId: z.string().min(1).optional(),
     pageUrl: z.string().min(1).max(2048).optional(),
@@ -306,10 +307,21 @@ export const listBugReports = protectedProcedure
         )
       }
 
-      if (input?.capturePublicKeyId) {
+      if (input?.projectId) {
+        // Reports whose capture key is assigned to this project.
         filters.push(
-          eq(bugReport.capturePublicKeyId, input.capturePublicKeyId)
+          inArray(
+            bugReport.capturePublicKeyId,
+            db
+              .select({ id: capturePublicKey.id })
+              .from(capturePublicKey)
+              .where(eq(capturePublicKey.projectId, input.projectId))
+          )
         )
+      }
+
+      if (input?.capturePublicKeyId) {
+        filters.push(eq(bugReport.capturePublicKeyId, input.capturePublicKeyId))
       }
 
       if (input?.assigneeId) {

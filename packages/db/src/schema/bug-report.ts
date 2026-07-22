@@ -20,9 +20,9 @@ export const bugReport = pgTable(
     reporterId: text("reporter_id").references(() => user.id, {
       onDelete: "set null",
     }),
-    assigneeId: text("assignee_id").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    // A public.people id (Paper Tiger dashboard). Loose reference — resolved by
+    // join, not a cross-schema FK, since that table is owned by another app.
+    assigneeId: text("assignee_id"),
     capturePublicKeyId: text("capture_public_key_id").references(
       () => capturePublicKey.id,
       { onDelete: "set null" }
@@ -233,6 +233,9 @@ export const capturePublicKey = pgTable(
       .default(sql`ARRAY[]::text[]`)
       .notNull(),
     status: text("status").default("active").notNull(),
+    // A public.projects id (Paper Tiger dashboard) — one deployed site/key maps
+    // to one project. Loose reference, assigned manually in key settings.
+    projectId: text("project_id"),
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",
     }),
@@ -257,10 +260,6 @@ export const bugReportRelations = relations(bugReport, ({ one, many }) => ({
   }),
   reporter: one(user, {
     fields: [bugReport.reporterId],
-    references: [user.id],
-  }),
-  assignee: one(user, {
-    fields: [bugReport.assigneeId],
     references: [user.id],
   }),
   capturePublicKey: one(capturePublicKey, {
