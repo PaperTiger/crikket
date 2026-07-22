@@ -75,6 +75,12 @@ const DEFAULT_TOOL: AnnotationTool = "select"
 const DEFAULT_COLOR = COLOR_OPTIONS[0].value
 const DEFAULT_EMOJI = "👍"
 
+const TOOL_HINTS: Partial<Record<AnnotationTool, string>> = {
+  select: "Click an annotation to move or resize it, then use the trash icon.",
+  text: "Click the screenshot and type. Press Enter to place, Esc to cancel.",
+  blur: "Drag a box over anything you want to blur out.",
+}
+
 export const KonvaAnnotationEditor = forwardRef<
   KonvaAnnotationEditorHandle,
   KonvaAnnotationEditorProps
@@ -271,6 +277,10 @@ export const KonvaAnnotationEditor = forwardRef<
               Pick an emoji, then click the screenshot to place it.
             </span>
           </div>
+        ) : null}
+
+        {tool !== "emoji" && TOOL_HINTS[tool] ? (
+          <p className="text-muted-foreground text-xs">{TOOL_HINTS[tool]}</p>
         ) : null}
       </div>
 

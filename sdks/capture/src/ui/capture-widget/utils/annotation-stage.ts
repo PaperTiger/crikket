@@ -36,7 +36,7 @@ const MIN_SHAPE_SIZE = 4
 export class AnnotationStage {
   private tool: AnnotationTool = "select"
   private color: string
-  private activeEmoji: string | null = null
+  private activeEmoji: string | null = "👍"
   private disabled = false
   private scale = 1
   private isDrawing = false
@@ -391,11 +391,17 @@ export class AnnotationStage {
   }
 
   private commitShape(shape: Konva.Shape): void {
+    // Draft-based tools (pen/highlight/arrow/rectangle) already added their node
+    // during pointerdown; text/emoji/blur create theirs here. add() is
+    // idempotent for a node already on the layer, so this covers both.
+    this.drawLayer.add(shape)
     shape.name("annotation")
     shape.draggable(this.tool === "select" && !this.disabled)
     shape.on("transformend", () => {
       this.normalizeScale(shape)
     })
+    // Keep the transformer above committed shapes so its handles stay usable.
+    this.transformer.moveToTop()
     this.shapes.push(shape)
     this.drawLayer.batchDraw()
     this.emitState()
