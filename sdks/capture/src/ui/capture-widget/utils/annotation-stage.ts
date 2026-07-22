@@ -153,6 +153,36 @@ export class AnnotationStage {
 
   setColor(color: string): void {
     this.color = color
+    // If a shape is selected, recolor it so color can be changed after placing.
+    const selected = this.transformer.nodes()
+    if (selected.length === 0) {
+      return
+    }
+    for (const node of selected) {
+      this.applyColorToShape(node, color)
+    }
+    this.drawLayer.batchDraw()
+  }
+
+  private applyColorToShape(node: Konva.Node, color: string): void {
+    if (node instanceof this.konva.Text) {
+      node.fill(color)
+      return
+    }
+    if (node instanceof this.konva.Arrow) {
+      node.stroke(color)
+      node.fill(color)
+      return
+    }
+    if (node instanceof this.konva.Line) {
+      node.stroke(color)
+      return
+    }
+    if (node instanceof this.konva.Rect) {
+      node.stroke(color)
+      node.fill(withAlpha(color, 0.08))
+    }
+    // Blur (Image) regions and emoji glyphs have no author-set color.
   }
 
   setActiveEmoji(emoji: string): void {
@@ -384,6 +414,23 @@ export class AnnotationStage {
       return
     }
 
+    // Text and emoji scale uniformly from the corners; boxes/lines are free.
+    const isTextLike = target instanceof this.konva.Text
+    this.transformer.keepRatio(isTextLike)
+    this.transformer.enabledAnchors(
+      isTextLike
+        ? ["top-left", "top-right", "bottom-left", "bottom-right"]
+        : [
+            "top-left",
+            "top-center",
+            "top-right",
+            "middle-left",
+            "middle-right",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right",
+          ]
+    )
     this.transformer.nodes([target])
     this.transformer.moveToTop()
     this.drawLayer.batchDraw()
@@ -508,9 +555,10 @@ export class AnnotationStage {
       left: `${pos.x * this.scale}px`,
       top: `${pos.y * this.scale}px`,
       margin: "0",
-      padding: "2px",
-      border: "1px solid rgba(37, 99, 235, 0.8)",
-      background: "rgba(255, 255, 255, 0.85)",
+      padding: "0",
+      border: "1px dashed rgba(37, 99, 235, 0.9)",
+      background: "transparent",
+      caretColor: this.color,
       outline: "none",
       resize: "none",
       overflow: "hidden",
@@ -589,7 +637,13 @@ export class AnnotationStage {
       return
     }
 
-    if (shape instanceof this.konva.Rect || shape instanceof this.konva.Image) {
+    if (shape instanceof this.konva.Text) {
+      shape.fontSize(Math.max(1, shape.fontSize() * Math.max(scaleX, scaleY)))
+      shape.scale({ x: 1, y: 1 })
+    } else if (
+      shape instanceof this.konva.Rect ||
+      shape instanceof this.konva.Image
+    ) {
       shape.width(Math.max(1, shape.width() * scaleX))
       shape.height(Math.max(1, shape.height() * scaleY))
       shape.scale({ x: 1, y: 1 })
