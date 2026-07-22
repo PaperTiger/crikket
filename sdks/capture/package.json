@@ -69,7 +69,9 @@
   },
   "dependencies": {
     "@crikket/capture-core": "workspace:*",
-    "@crikket/shared": "workspace:*"
+    "@crikket/shared": "workspace:*",
+    "@zumer/snapdom": "^2.18.0",
+    "konva": "^10.3.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

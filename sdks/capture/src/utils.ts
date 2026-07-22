@@ -1,10 +1,11 @@
 import {
   DEFAULT_ENDPOINT,
+  DEFAULT_SCREENSHOT_MODE,
   DEFAULT_SUBMIT_PATH,
   DEFAULT_Z_INDEX,
   TRAILING_SLASHES_REGEX,
 } from "./constants"
-import type { BridgePayload } from "./types"
+import type { BridgePayload, CaptureScreenshotMode } from "./types"
 
 export function normalizeKey(value: string): string {
   const normalized = value.trim()
@@ -39,6 +40,10 @@ export function normalizeZIndex(value?: number): number {
   }
 
   return Math.max(1, Math.floor(value))
+}
+
+export function normalizeScreenshotMode(value?: string): CaptureScreenshotMode {
+  return value === "display" ? "display" : DEFAULT_SCREENSHOT_MODE
 }
 
 export function isBridgePayload(value: unknown): value is BridgePayload {

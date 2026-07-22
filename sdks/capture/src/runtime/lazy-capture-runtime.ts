@@ -10,6 +10,7 @@ import { mountCaptureLauncher } from "../ui/mount-capture-launcher"
 import {
   normalizeHost,
   normalizeKey,
+  normalizeScreenshotMode,
   normalizeSubmitPath,
   normalizeZIndex,
 } from "../utils"
@@ -33,6 +34,7 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
       host: normalizeHost(options.host),
       submitPath: normalizeSubmitPath(options.submitPath),
       zIndex: normalizeZIndex(options.zIndex),
+      screenshotMode: normalizeScreenshotMode(options.screenshotMode),
     }
 
     this.runtimeConfig = runtimeConfig
@@ -43,6 +45,7 @@ export class LazyCaptureSdkRuntime implements CaptureRuntimeController {
       key: runtimeConfig.key,
       submitPath: runtimeConfig.submitPath,
       zIndex: runtimeConfig.zIndex,
+      screenshotMode: runtimeConfig.screenshotMode,
       submitTransport: this.submitTransport,
     }
 

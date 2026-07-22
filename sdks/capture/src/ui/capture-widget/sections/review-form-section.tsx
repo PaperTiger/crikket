@@ -1,20 +1,19 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef } from "react"
 import type { CaptureSubmissionDraft } from "../../../types"
 import type { CaptureReviewSubmitOptions, CaptureUiState } from "../../types"
+import {
+  KonvaAnnotationEditor,
+  type KonvaAnnotationEditorHandle,
+} from "../components/konva-annotation-editor"
 import { MediaPreview } from "../components/media-preview"
 import { Button } from "../components/primitives/button"
 import { Field, FieldError } from "../components/primitives/field"
 import { Input } from "../components/primitives/input"
 import { Label } from "../components/primitives/label"
 import { Textarea } from "../components/primitives/textarea"
-import { ScreenshotAnnotationEditor } from "../components/screenshot-annotation-editor"
 import { SummaryStat } from "../components/summary-stat"
 import { useReviewForm } from "../hooks/use-review-form"
 import { capturePriorityOptions } from "../utils/review-form-schema"
-import {
-  createAnnotatedScreenshotBlob,
-  type ScreenshotAnnotation,
-} from "../utils/screenshot-annotations"
 
 interface ReviewFormSectionProps {
   formKey: string
@@ -34,28 +33,16 @@ export function ReviewFormSection({
   onCancel,
   onSubmit,
 }: ReviewFormSectionProps): React.JSX.Element {
-  const [annotations, setAnnotations] = useState<ScreenshotAnnotation[]>([])
-  const previousMediaObjectUrlRef = useRef(state.media?.objectUrl)
-
-  useEffect(() => {
-    if (previousMediaObjectUrlRef.current === state.media?.objectUrl) {
-      return
-    }
-
-    previousMediaObjectUrlRef.current = state.media?.objectUrl
-    setAnnotations([])
-  }, [state.media?.objectUrl])
+  const annotationEditorRef = useRef<KonvaAnnotationEditorHandle | null>(null)
 
   const form = useReviewForm({
     initialDraft: state.reviewDraft,
     onSubmit: async (draft) => {
       let submitOptions: CaptureReviewSubmitOptions | undefined
 
-      if (state.media?.captureType === "screenshot" && annotations.length > 0) {
-        const screenshotBlobOverride = await createAnnotatedScreenshotBlob({
-          annotations,
-          imageUrl: state.media.objectUrl,
-        })
+      if (state.media?.captureType === "screenshot") {
+        const screenshotBlobOverride =
+          await annotationEditorRef.current?.exportAnnotatedBlob()
 
         submitOptions = screenshotBlobOverride
           ? { screenshotBlobOverride }
@@ -85,10 +72,9 @@ export function ReviewFormSection({
 
         <div className="min-h-0 flex-1 overflow-auto p-5">
           {state.media?.captureType === "screenshot" ? (
-            <ScreenshotAnnotationEditor
-              annotations={annotations}
+            <KonvaAnnotationEditor
               disabled={state.busy || isSubmitting}
-              onChange={setAnnotations}
+              ref={annotationEditorRef}
               src={state.media.objectUrl}
             />
           ) : (

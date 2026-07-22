@@ -11,6 +11,7 @@ export function mountCaptureUi(
   callbacks: CaptureUiCallbacks
 ): MountedCaptureUi {
   const hostElement = document.createElement("div")
+  hostElement.setAttribute("data-crikket-capture-ui", "")
   const shadowRoot = hostElement.attachShadow({
     mode: "open",
   })

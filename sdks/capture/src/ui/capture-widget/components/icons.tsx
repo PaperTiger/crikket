@@ -69,6 +69,76 @@ export function ResetIcon(
   )
 }
 
+export function SelectIcon(
+  props: React.SVGProps<SVGSVGElement>
+): React.JSX.Element {
+  return (
+    <SvgIcon {...props}>
+      <path d="m5 4 6 15 2.2-5.8L19 11 5 4Z" />
+      <path d="m13 13 5 5" />
+    </SvgIcon>
+  )
+}
+
+export function ArrowIcon(
+  props: React.SVGProps<SVGSVGElement>
+): React.JSX.Element {
+  return (
+    <SvgIcon {...props}>
+      <path d="M5 19 19 5" />
+      <path d="M10 5h9v9" />
+    </SvgIcon>
+  )
+}
+
+export function TextIcon(
+  props: React.SVGProps<SVGSVGElement>
+): React.JSX.Element {
+  return (
+    <SvgIcon {...props}>
+      <path d="M5 6V5h14v1" />
+      <path d="M12 5v14" />
+      <path d="M9 19h6" />
+    </SvgIcon>
+  )
+}
+
+export function BlurIcon(
+  props: React.SVGProps<SVGSVGElement>
+): React.JSX.Element {
+  return (
+    <SvgIcon {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 4v16" strokeDasharray="1.5 2.5" />
+      <path d="M4 12h16" strokeDasharray="1.5 2.5" />
+    </SvgIcon>
+  )
+}
+
+export function EmojiIcon(
+  props: React.SVGProps<SVGSVGElement>
+): React.JSX.Element {
+  return (
+    <SvgIcon {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M9 10h.01M15 10h.01" />
+      <path d="M9 14.5a4 4 0 0 0 6 0" />
+    </SvgIcon>
+  )
+}
+
+export function TrashIcon(
+  props: React.SVGProps<SVGSVGElement>
+): React.JSX.Element {
+  return (
+    <SvgIcon {...props}>
+      <path d="M5 7h14" />
+      <path d="M9 7V5h6v2" />
+      <path d="M7 7l1 12h8l1-12" />
+    </SvgIcon>
+  )
+}
+
 export function CopyIcon(
   props: React.SVGProps<SVGSVGElement>
 ): React.JSX.Element {

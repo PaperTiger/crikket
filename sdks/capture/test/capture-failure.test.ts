@@ -15,6 +15,7 @@ describe("capture SDK capture failure regression", () => {
     capture.init({
       key: "crk_capture_failure",
       host: "https://api.crikket.io",
+      screenshotMode: "display",
     })
 
     sdkTestState.screenshotError = new Error(

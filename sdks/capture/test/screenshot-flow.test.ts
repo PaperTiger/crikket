@@ -28,6 +28,7 @@ describe("capture SDK screenshot flow", () => {
       key: "crk_screenshot_flow",
       submitPath: "/api/embed/bug-reports",
       zIndex: 2_147_483_640,
+      screenshotMode: "dom",
     })
     expect(sdkTestState.launcherMounts).toEqual([
       {

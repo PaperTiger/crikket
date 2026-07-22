@@ -80,6 +80,22 @@ Available options:
 - `mountTarget`: custom element to mount into; defaults to `document.body`
 - `submitPath`: custom bug report base path; defaults to `/api/embed/bug-reports`
 - `zIndex`: custom widget stacking order
+- `screenshotMode`: how screenshots are captured; defaults to `"dom"`
+
+### Screenshot modes
+
+- `"dom"` (default): captures the page in-browser and shows a crosshair to
+  drag-select a region — no screen-share permission prompt. Rendering is done
+  with [snapdom](https://github.com/zumerlab/snapdom). This mode captures the
+  visible viewport only (scroll to what you need before reporting). If the page
+  can't be rasterized (tainted cross-origin images, strict CSP), the SDK
+  automatically falls back to the display-capture path for that capture.
+- `"display"`: uses the browser screen-capture API (`getDisplayMedia`), which
+  shows the "share this tab" permission dialog and captures the whole tab.
+
+DOM capture renders the DOM, so cross-origin `<iframe>`s, `<video>` frames, and
+WebGL canvases may appear blank. Video recording always uses `getDisplayMedia`
+regardless of `screenshotMode`.
 
 `submitPath` is used as the base path for the capture control-plane flow. By
 default the SDK derives these routes from `/api/embed/bug-reports`:

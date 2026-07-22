@@ -1,6 +1,8 @@
 import { LazyDebuggerCollector } from "../debugger/lazy-debugger-collector"
 import {
+  captureDomScreenshot,
   captureScreenshot,
+  selectCaptureRegion,
   startDisplayRecording,
 } from "../media/lazy-capture-media"
 import type {
@@ -18,6 +20,7 @@ import type { CaptureReviewSubmitOptions, MountedCaptureUi } from "../ui/types"
 import {
   normalizeHost,
   normalizeKey,
+  normalizeScreenshotMode,
   normalizeSubmitPath,
   normalizeZIndex,
 } from "../utils"
@@ -38,6 +41,7 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
       host: normalizeHost(options.host),
       submitPath: normalizeSubmitPath(options.submitPath),
       zIndex: normalizeZIndex(options.zIndex),
+      screenshotMode: normalizeScreenshotMode(options.screenshotMode),
     }
 
     this.runtimeConfig = config
@@ -75,10 +79,9 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
         return this.startRecording()
       },
       onTakeScreenshot: async () => {
-        const blob = await this.takeScreenshot()
-        if (!blob) {
-          throw new Error("Screenshot capture failed.")
-        }
+        // Returns null when the user cancels region selection; that is a
+        // graceful no-op (the chooser is restored), not a failure.
+        await this.takeScreenshot()
       },
       onStopRecording: async () => {
         const blob = await this.stopRecording()
@@ -180,9 +183,60 @@ export class CaptureSdkRuntime implements CaptureRuntimeController {
     return result.blob
   }
 
-  async takeScreenshot(): Promise<Blob | null> {
-    this.getRuntimeConfig()
+  takeScreenshot(): Promise<Blob | null> {
+    const config = this.getRuntimeConfig()
     this.ensureBrowserContext()
+
+    if (config.screenshotMode === "display") {
+      return this.captureDisplayScreenshot()
+    }
+
+    return this.captureRegionScreenshot(config)
+  }
+
+  private async captureRegionScreenshot(
+    config: CaptureRuntimeConfig
+  ): Promise<Blob | null> {
+    // Hide the widget before the crosshair overlay appears so it never ends up
+    // in the capture and the page underneath is clean to select on.
+    await this.hideUiForCapture()
+
+    let selection: Awaited<ReturnType<typeof selectCaptureRegion>>
+    try {
+      selection = await selectCaptureRegion({ zIndex: config.zIndex })
+    } catch {
+      selection = null
+    }
+
+    if (!selection) {
+      // Cancelled (Esc / tab hidden) — restore the chooser without an error.
+      this.setUiHidden(false)
+      this.mountedUi?.store.openChooser()
+      return null
+    }
+
+    await this.debuggerCollector.startScreenshotSession()
+
+    let blob: Blob
+    try {
+      blob = await captureDomScreenshot(selection)
+    } catch {
+      // DOM rasterization failed (tainted canvas, strict CSP, cross-origin
+      // assets). Fall back to the display-capture path within the same gesture.
+      this.debuggerCollector.clearSession()
+      return this.captureDisplayScreenshot()
+    }
+
+    await this.finalizeCapturedMedia({
+      blob,
+      captureType: "screenshot",
+      durationMs: null,
+    })
+
+    return blob
+  }
+
+  private async captureDisplayScreenshot(): Promise<Blob | null> {
     await this.debuggerCollector.startScreenshotSession()
 
     let blob: Blob

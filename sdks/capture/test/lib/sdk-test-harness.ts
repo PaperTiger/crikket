@@ -81,6 +81,25 @@ export const sdkTestState = {
   objectUrlsCreated: [] as string[],
   objectUrlsRevoked: [] as string[],
   reviewSnapshot: buildReviewSnapshot(),
+  selectRegionCalls: [] as Array<{ zIndex: number }>,
+  domCaptureCalls: 0,
+  regionSelectCancelled: false,
+  regionSelection: {
+    kind: "viewport",
+    x: 0,
+    y: 0,
+    width: 1280,
+    height: 720,
+  } as RegionSelectionMock,
+  domCaptureError: null as Error | null,
+}
+
+type RegionSelectionMock = {
+  kind: "region" | "viewport"
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 let nextObjectUrlId = 0
@@ -150,6 +169,22 @@ mock.module(CAPTURE_MEDIA_PATH, () => ({
   captureScreenshot: () => {
     if (sdkTestState.screenshotError) {
       return Promise.reject(sdkTestState.screenshotError)
+    }
+
+    return Promise.resolve(sdkTestState.screenshotBlob)
+  },
+  selectCaptureRegion: (options: { zIndex: number }) => {
+    sdkTestState.selectRegionCalls.push(options)
+    if (sdkTestState.regionSelectCancelled) {
+      return Promise.resolve(null)
+    }
+
+    return Promise.resolve(sdkTestState.regionSelection)
+  },
+  captureDomScreenshot: () => {
+    sdkTestState.domCaptureCalls += 1
+    if (sdkTestState.domCaptureError) {
+      return Promise.reject(sdkTestState.domCaptureError)
     }
 
     return Promise.resolve(sdkTestState.screenshotBlob)
@@ -283,6 +318,17 @@ export function resetSdkTestState(): void {
   sdkTestState.objectUrlsCreated = []
   sdkTestState.objectUrlsRevoked = []
   sdkTestState.reviewSnapshot = buildReviewSnapshot()
+  sdkTestState.selectRegionCalls = []
+  sdkTestState.domCaptureCalls = 0
+  sdkTestState.regionSelectCancelled = false
+  sdkTestState.regionSelection = {
+    kind: "viewport",
+    x: 0,
+    y: 0,
+    width: 1280,
+    height: 720,
+  }
+  sdkTestState.domCaptureError = null
   nextObjectUrlId = 0
   resolveRecordingFinished = null
 }

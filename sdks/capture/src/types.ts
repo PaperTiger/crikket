@@ -4,6 +4,15 @@ export type CaptureType = "video" | "screenshot"
 export type CapturePriority = "none" | "low" | "medium" | "high" | "critical"
 export type CaptureReportVisibility = "public" | "private"
 
+/**
+ * How screenshots are captured.
+ * - `dom` (default): rasterize the page in-browser (no permission prompt) with a
+ *   crosshair region selector.
+ * - `display`: use the browser's screen-capture API (`getDisplayMedia`), which
+ *   shows the tab-share permission dialog.
+ */
+export type CaptureScreenshotMode = "dom" | "display"
+
 export type DebuggerActionType =
   | "click"
   | "input"
@@ -82,6 +91,7 @@ export interface CaptureInitOptions {
   mountTarget?: HTMLElement
   submitPath?: string
   zIndex?: number
+  screenshotMode?: CaptureScreenshotMode
   submitTransport?: CaptureSubmitTransport
 }
 
@@ -90,6 +100,7 @@ export interface CaptureRuntimeConfig {
   host: string
   submitPath: string
   zIndex: number
+  screenshotMode: CaptureScreenshotMode
 }
 
 export interface CaptureDebuggerSummary {

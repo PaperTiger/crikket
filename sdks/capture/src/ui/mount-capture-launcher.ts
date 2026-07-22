@@ -16,6 +16,7 @@ export function mountCaptureLauncher(
   options: MountCaptureLauncherOptions
 ): MountedCaptureLauncher {
   const hostElement = document.createElement("div")
+  hostElement.setAttribute("data-crikket-capture-ui", "")
   const shadowRoot = hostElement.attachShadow({
     mode: "open",
   })
