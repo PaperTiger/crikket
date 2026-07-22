@@ -99,6 +99,10 @@ const listBugReportsInputSchema = z
       .array(z.enum(visibilityValues))
       .max(visibilityValues.length)
       .optional(),
+    // Group filters (used by grouped table drill-down and per-project views).
+    capturePublicKeyId: z.string().min(1).optional(),
+    assigneeId: z.string().min(1).optional(),
+    pageUrl: z.string().min(1).max(2048).optional(),
     sort: z.enum(sortValues).default(BUG_REPORT_SORT_OPTIONS.newest),
   })
   .optional()
@@ -299,6 +303,23 @@ export const listBugReports = protectedProcedure
       if (input?.visibilities && input.visibilities.length > 0) {
         filters.push(
           inArray(bugReport.visibility, Array.from(new Set(input.visibilities)))
+        )
+      }
+
+      if (input?.capturePublicKeyId) {
+        filters.push(
+          eq(bugReport.capturePublicKeyId, input.capturePublicKeyId)
+        )
+      }
+
+      if (input?.assigneeId) {
+        filters.push(eq(bugReport.assigneeId, input.assigneeId))
+      }
+
+      if (input?.pageUrl) {
+        // Match the "page" grouping: compare on the URL minus its query string.
+        filters.push(
+          sql`split_part(coalesce(${bugReport.url}, ''), '?', 1) = ${input.pageUrl}`
         )
       }
 
