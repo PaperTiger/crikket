@@ -28,7 +28,6 @@ import { usePathname } from "next/navigation"
 import type * as React from "react"
 import { TeamSwitcher } from "@/components/team-switcher"
 import { UserNav } from "@/components/user-nav"
-import { getDocsUrl } from "@/lib/site"
 
 type Organization = typeof authClient.$Infer.Organization
 
@@ -70,10 +69,14 @@ const navSettings = [
   },
 ] as const
 
+// The maintained technical overview + usage guide lives in the repo.
+const DOCUMENTATION_URL =
+  "https://github.com/PaperTiger/crikket/blob/master/docs/OVERVIEW.md"
+
 const navSecondary = [
   {
     title: "Documentation",
-    url: "/docs",
+    url: DOCUMENTATION_URL,
     icon: BookOpen,
   },
 ] as const
@@ -85,7 +88,6 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const pathname = usePathname()
-  const docsUrl = getDocsUrl()
 
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -150,18 +152,14 @@ export function AppSidebar({
               {navSecondary.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    render={(props) =>
-                      docsUrl ? (
-                        <a
-                          href={docsUrl}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                          {...props}
-                        />
-                      ) : (
-                        <button type="button" {...props} />
-                      )
-                    }
+                    render={(props) => (
+                      <a
+                        href={item.url}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                        {...props}
+                      />
+                    )}
                     size="sm"
                   >
                     <item.icon />

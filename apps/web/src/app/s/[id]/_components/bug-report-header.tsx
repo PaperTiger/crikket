@@ -7,6 +7,7 @@ import { Separator } from "@crikket/ui/components/ui/separator"
 import { Home } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
+import { PaperTigerWordmark } from "@/components/paper-tiger-wordmark"
 import type { SharedBugReport } from "./types"
 
 interface BugReportHeaderProps {
@@ -43,10 +44,11 @@ export function BugReportHeader({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="md:hidden">{sidebarTrigger}</div>
         <Link
-          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Paper Tiger — back to dashboard"
+          className="shrink-0 text-foreground transition-opacity hover:opacity-70"
           href="/"
         >
-          <span className="font-semibold text-foreground">crikket</span>
+          <PaperTigerWordmark className="h-4 w-auto" />
         </Link>
         <Separator className="h-5 shrink-0" orientation="vertical" />
         <div className="flex min-w-0 items-center gap-2">
