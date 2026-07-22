@@ -1,4 +1,8 @@
-import { flexRender, type Table as TanstackTable } from "@tanstack/react-table";
+import {
+  flexRender,
+  type Row,
+  type Table as TanstackTable,
+} from "@tanstack/react-table";
 import type * as React from "react";
 
 import { DataTablePagination } from "@crikket/ui/components/data-table/data-table-pagination";
@@ -17,12 +21,19 @@ interface DataTableProps<TData> extends React.ComponentProps<"div"> {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
   hideSelectedRowsLabel?: boolean;
+  /**
+   * When provided, each body row becomes a click target (pointer cursor +
+   * keyboard-activatable) that invokes this callback. Opt-in — tables without
+   * it render exactly as before.
+   */
+  onRowClick?: (row: Row<TData>) => void;
 }
 
 export function DataTable<TData>({
   table,
   actionBar,
   hideSelectedRowsLabel = false,
+  onRowClick,
   children,
   className,
   ...props
@@ -63,6 +74,20 @@ export function DataTable<TData>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={cn(onRowClick && "group/row cursor-pointer")}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
+                  role={onRowClick ? "button" : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

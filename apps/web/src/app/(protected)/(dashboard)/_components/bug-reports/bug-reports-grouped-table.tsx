@@ -58,12 +58,8 @@ export function BugReportsGroupedTable({
   )
 
   const columns = React.useMemo(
-    () =>
-      createGroupedTableColumns({
-        groupBy: group,
-        onDrillDown: (groupKey) => filtersState.drillDownInto(group, groupKey),
-      }),
-    [group, filtersState.drillDownInto]
+    () => createGroupedTableColumns({ groupBy: group }),
+    [group]
   )
 
   const { table } = useDataTable({
@@ -163,7 +159,18 @@ export function BugReportsGroupedTable({
       ) : null}
 
       {!(groupedQuery.isLoading || groupedQuery.isError) && rows.length > 0 ? (
-        <DataTable hideSelectedRowsLabel table={table} />
+        <DataTable
+          hideSelectedRowsLabel
+          onRowClick={(row) => {
+            const { groupKey } = row.original
+            // Ungrouped buckets ("No project" / "Unassigned") have no concrete
+            // key to filter on, so only grouped rows drill down.
+            if (groupKey) {
+              filtersState.drillDownInto(group, groupKey)
+            }
+          }}
+          table={table}
+        />
       ) : null}
     </div>
   )

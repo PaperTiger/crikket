@@ -8,7 +8,6 @@ import type { BugReportGroupRow } from "./types"
 
 interface GroupedTableColumnsOptions {
   groupBy: BugReportGroupBy
-  onDrillDown: (groupKey: string) => void
 }
 
 const COUNT_COLUMNS: Array<{
@@ -25,7 +24,6 @@ const COUNT_COLUMNS: Array<{
 
 export function createGroupedTableColumns({
   groupBy,
-  onDrillDown,
 }: GroupedTableColumnsOptions): ColumnDef<BugReportGroupRow>[] {
   const groupHeader = formatGroupColumnHeader(groupBy)
 
@@ -37,6 +35,8 @@ export function createGroupedTableColumns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} label={groupHeader} />
       ),
+      // The whole row is the click target (see BugReportsGroupedTable); the
+      // label just needs to read as an actionable link for grouped rows.
       cell: ({ row }) => {
         const { groupKey, groupLabel } = row.original
 
@@ -49,14 +49,12 @@ export function createGroupedTableColumns({
         }
 
         return (
-          <button
-            className="max-w-[420px] truncate text-left font-medium hover:underline"
-            onClick={() => onDrillDown(groupKey)}
+          <span
+            className="block max-w-[420px] truncate font-medium text-primary underline-offset-4 group-hover/row:underline"
             title={groupLabel}
-            type="button"
           >
             {groupLabel}
-          </button>
+          </span>
         )
       },
     },
