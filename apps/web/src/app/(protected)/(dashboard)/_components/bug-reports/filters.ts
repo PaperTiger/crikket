@@ -13,9 +13,11 @@ import {
 
 export const STATUS_OPTIONS: Array<{ value: BugReportStatus; label: string }> =
   [
-    { value: BUG_REPORT_STATUS_OPTIONS.open, label: "Open" },
-    { value: BUG_REPORT_STATUS_OPTIONS.inProgress, label: "In Progress" },
-    { value: BUG_REPORT_STATUS_OPTIONS.resolved, label: "Resolved" },
+    { value: BUG_REPORT_STATUS_OPTIONS.toDo, label: "To do" },
+    { value: BUG_REPORT_STATUS_OPTIONS.inProgress, label: "In progress" },
+    { value: BUG_REPORT_STATUS_OPTIONS.clientReview, label: "Client review" },
+    { value: BUG_REPORT_STATUS_OPTIONS.blocked, label: "Blocked" },
+    { value: BUG_REPORT_STATUS_OPTIONS.done, label: "Done" },
     { value: BUG_REPORT_STATUS_OPTIONS.closed, label: "Closed" },
   ]
 

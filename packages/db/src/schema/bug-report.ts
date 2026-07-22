@@ -22,7 +22,7 @@ export const bugReport = pgTable(
     }),
     title: text("title"),
     description: text("description"),
-    status: text("status").default("open").notNull(), // open, in_progress, resolved, closed
+    status: text("status").default("to_do").notNull(), // to_do, in_progress, client_review, blocked, done, closed
     priority: text("priority").default("none").notNull(), // none, low, medium, high, critical
     tags: text("tags").array(),
     url: text("url"),

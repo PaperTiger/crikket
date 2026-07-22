@@ -356,7 +356,7 @@ export async function finalizeBugReportUpload(input: {
       submissionStatus: BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing,
       visibility: uploadSession.visibility,
       deviceInfo: uploadSession.deviceInfo,
-      status: "open",
+      status: "to_do",
       metadata: uploadSession.metadata,
     })
 

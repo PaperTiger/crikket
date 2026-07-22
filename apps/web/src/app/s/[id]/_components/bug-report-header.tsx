@@ -16,14 +16,20 @@ interface BugReportHeaderProps {
 
 function formatStatusLabel(status: BugReportStatus): string {
   switch (status) {
+    case BUG_REPORT_STATUS_OPTIONS.toDo:
+      return "To do"
     case BUG_REPORT_STATUS_OPTIONS.inProgress:
-      return "In Progress"
-    case BUG_REPORT_STATUS_OPTIONS.resolved:
-      return "Resolved"
+      return "In progress"
+    case BUG_REPORT_STATUS_OPTIONS.clientReview:
+      return "Client review"
+    case BUG_REPORT_STATUS_OPTIONS.blocked:
+      return "Blocked"
+    case BUG_REPORT_STATUS_OPTIONS.done:
+      return "Done"
     case BUG_REPORT_STATUS_OPTIONS.closed:
       return "Closed"
     default:
-      return "Open"
+      return "To do"
   }
 }
 

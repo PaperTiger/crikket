@@ -36,9 +36,11 @@ import { editBugReportFormSchema } from "@/lib/schema/bug-report"
 import { client } from "@/utils/orpc"
 
 const statusOptions: Array<{ label: string; value: BugReportStatus }> = [
-  { label: "Open", value: BUG_REPORT_STATUS_OPTIONS.open },
-  { label: "In Progress", value: BUG_REPORT_STATUS_OPTIONS.inProgress },
-  { label: "Resolved", value: BUG_REPORT_STATUS_OPTIONS.resolved },
+  { label: "To do", value: BUG_REPORT_STATUS_OPTIONS.toDo },
+  { label: "In progress", value: BUG_REPORT_STATUS_OPTIONS.inProgress },
+  { label: "Client review", value: BUG_REPORT_STATUS_OPTIONS.clientReview },
+  { label: "Blocked", value: BUG_REPORT_STATUS_OPTIONS.blocked },
+  { label: "Done", value: BUG_REPORT_STATUS_OPTIONS.done },
   { label: "Closed", value: BUG_REPORT_STATUS_OPTIONS.closed },
 ]
 

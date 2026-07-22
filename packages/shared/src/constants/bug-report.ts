@@ -1,7 +1,9 @@
 export const BUG_REPORT_STATUS_OPTIONS = {
-  open: "open",
+  toDo: "to_do",
   inProgress: "in_progress",
-  resolved: "resolved",
+  clientReview: "client_review",
+  blocked: "blocked",
+  done: "done",
   closed: "closed",
 } as const
 

@@ -25,9 +25,11 @@ import type { DashboardFilters } from "../_components/bug-reports/filters"
 import { toggleValue } from "../_components/bug-reports/utils"
 
 const STATUS_VALUES = [
-  BUG_REPORT_STATUS_OPTIONS.open,
+  BUG_REPORT_STATUS_OPTIONS.toDo,
   BUG_REPORT_STATUS_OPTIONS.inProgress,
-  BUG_REPORT_STATUS_OPTIONS.resolved,
+  BUG_REPORT_STATUS_OPTIONS.clientReview,
+  BUG_REPORT_STATUS_OPTIONS.blocked,
+  BUG_REPORT_STATUS_OPTIONS.done,
   BUG_REPORT_STATUS_OPTIONS.closed,
 ] as const satisfies readonly BugReportStatus[]
 

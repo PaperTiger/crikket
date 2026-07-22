@@ -179,8 +179,8 @@ export function BugReportsToolbar({
       <div className="flex flex-wrap items-center gap-2">
         <StatChip
           icon={<TriangleAlert className="size-3.5" />}
-          label="Open"
-          value={stats?.open ?? 0}
+          label="To do"
+          value={stats?.toDo ?? 0}
         />
         <StatChip
           icon={<Shield className="size-3.5" />}

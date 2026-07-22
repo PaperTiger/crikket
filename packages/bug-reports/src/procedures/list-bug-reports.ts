@@ -68,9 +68,11 @@ export interface BugReportListItem {
 
 export interface BugReportDashboardStats {
   total: number
-  open: number
+  toDo: number
   inProgress: number
-  resolved: number
+  clientReview: number
+  blocked: number
+  done: number
   closed: number
   untriaged: number
   mine: number
@@ -230,7 +232,7 @@ async function mapBugReportListItem(
     attachmentUrl: attachmentUrl ?? undefined,
     attachmentType,
     visibility: isVisibility(report.visibility) ? report.visibility : "private",
-    status: isStatus(report.status) ? report.status : "open",
+    status: isStatus(report.status) ? report.status : "to_do",
     submissionStatus:
       report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed ||
       report.submissionStatus ===
@@ -341,9 +343,11 @@ export const getBugReportDashboardStats = protectedProcedure.handler(
     const [result] = await db
       .select({
         total: count(),
-        open: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'open' THEN 1 ELSE 0 END)`,
+        toDo: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'to_do' THEN 1 ELSE 0 END)`,
         inProgress: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'in_progress' THEN 1 ELSE 0 END)`,
-        resolved: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'resolved' THEN 1 ELSE 0 END)`,
+        clientReview: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'client_review' THEN 1 ELSE 0 END)`,
+        blocked: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'blocked' THEN 1 ELSE 0 END)`,
+        done: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'done' THEN 1 ELSE 0 END)`,
         closed: sql<number>`SUM(CASE WHEN ${bugReport.status} = 'closed' THEN 1 ELSE 0 END)`,
         untriaged: sql<number>`SUM(CASE WHEN ${bugReport.priority} = 'none' THEN 1 ELSE 0 END)`,
         mine: sql<number>`SUM(CASE WHEN ${bugReport.reporterId} = ${context.session.user.id} THEN 1 ELSE 0 END)`,
@@ -355,9 +359,11 @@ export const getBugReportDashboardStats = protectedProcedure.handler(
 
     return {
       total: normalizeInt(result?.total),
-      open: normalizeInt(result?.open),
+      toDo: normalizeInt(result?.toDo),
       inProgress: normalizeInt(result?.inProgress),
-      resolved: normalizeInt(result?.resolved),
+      clientReview: normalizeInt(result?.clientReview),
+      blocked: normalizeInt(result?.blocked),
+      done: normalizeInt(result?.done),
       closed: normalizeInt(result?.closed),
       untriaged: normalizeInt(result?.untriaged),
       mine: normalizeInt(result?.mine),
