@@ -1,4 +1,5 @@
 import { db } from "@crikket/db"
+import { BUG_REPORT_STATUS_OPTIONS } from "@crikket/shared/constants/bug-report"
 import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { protectedProcedure } from "./context"
@@ -9,6 +10,8 @@ export interface CrikketProject {
   name: string
   clientName: string | null
   keyCount: number
+  /** Bug reports on this project that are still open — not done, not closed. */
+  openCount: number
   /** User ids of the organization members working on this project. */
   teamUserIds: string[]
 }
@@ -62,6 +65,10 @@ export const listCrikketProjects = protectedProcedure
     const result = await db.execute(sql`
       select p."id", p."name", p."client_name" as "clientName",
         count(distinct k."id")::int as "keyCount",
+        count(distinct b."id") filter (
+          where b."status" <> ${BUG_REPORT_STATUS_OPTIONS.done}
+            and b."status" <> ${BUG_REPORT_STATUS_OPTIONS.closed}
+        )::int as "openCount",
         coalesce(
           array_agg(distinct t."user_id") filter (where t."user_id" is not null),
           '{}'
@@ -70,6 +77,9 @@ export const listCrikketProjects = protectedProcedure
       join "public"."projects" p on k."project_id" = p."id"
       left join "project_team_member" t
         on t."project_id" = p."id" and t."organization_id" = ${activeOrgId}
+      left join "bug_report" b
+        on b."capture_public_key_id" = k."id"
+        and b."organization_id" = ${activeOrgId}
       where k."organization_id" = ${activeOrgId} and k."project_id" is not null
       group by p."id", p."name", p."client_name"
       ${
@@ -85,6 +95,7 @@ export const listCrikketProjects = protectedProcedure
       name: row.name ?? "Untitled project",
       clientName: row.clientName,
       keyCount: Number(row.keyCount ?? 0),
+      openCount: Number(row.openCount ?? 0),
       teamUserIds: Array.isArray(row.teamUserIds) ? row.teamUserIds : [],
     }))
   })
