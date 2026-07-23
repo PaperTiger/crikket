@@ -133,9 +133,26 @@ serves.
 - Sidebar nav: `apps/web/src/components/app-sidebar.tsx` (grouped sections —
   "Platform", "Projects" (projects with a Crikket key → `/projects/[id]`),
   "Settings").
-- Views: the bug‑reports page has a **Table/Grid toggle**; the table groups by
-  Project / Assignee / Page with status count columns and a column‑toggle
-  "View" control. `/projects/[id]` reuses these views pre‑filtered to a project.
+- Views: the bug‑reports page has a **Table/Grid toggle**. Across projects the table is a
+  grouped rollup (Project / Assignee / Page with status counts + a column‑toggle "View"
+  control); on `/projects/[id]` the table is the **issues list** for that project — one row
+  per report, sorted by status, each row opening `/s/[id]`.
+
+### Guest access & project teams
+
+- **Project teams:** org members are assigned to projects (`project_team_member`), so the
+  sidebar can split **My Projects** from **All Projects**.
+- **Guest access:** clients get per‑project access (`project_guest_grant`) via an emailed
+  invitation, and land on `/portal` seeing only their granted projects. Guest onboarding
+  depends on `RESEND_API_KEY` and `ALLOWED_SIGNUP_DOMAINS` on the server — both fail
+  *silently* if misconfigured (the invite looks sent and never arrives).
+
+Known gaps in the current implementation:
+
+- **No notification system.** Project teams exist so notifications can eventually be
+  targeted; nothing sends email on ticket activity today.
+- **Assignees aren't linked to Crikket logins.** Assignees come from the dashboard's
+  `public.people`, which has no email column, so an assigned person can't be notified.
 
 ---
 
