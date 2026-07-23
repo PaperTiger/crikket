@@ -3,6 +3,7 @@
 import {
   BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+  type BugReportStatus,
   type BugReportVisibility,
 } from "@crikket/shared/constants/bug-report"
 import { reportNonFatalError } from "@crikket/shared/lib/errors"
@@ -47,11 +48,8 @@ import {
 import { toast } from "sonner"
 import { EditBugReportSheet } from "@/components/bug-reports/edit-bug-report-sheet"
 
-import {
-  formatPriorityLabel,
-  formatStatusLabel,
-  VISIBILITY_OPTIONS,
-} from "./filters"
+import { formatPriorityLabel, VISIBILITY_OPTIONS } from "./filters"
+import { StatusPill } from "./status-pill"
 import type { BugReportListItem } from "./types"
 
 interface BugReportCardProps {
@@ -62,7 +60,10 @@ interface BugReportCardProps {
   onRequestDelete: () => void
   onRetryDebuggerIngestion: () => void
   onReportUpdated: () => Promise<void>
-  onUpdateReport: (input: { visibility?: BugReportVisibility }) => void
+  onUpdateReport: (input: {
+    visibility?: BugReportVisibility
+    status?: BugReportStatus
+  }) => void
 }
 
 export function BugReportCard({
@@ -238,7 +239,14 @@ export function BugReportCard({
           </p>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <Chip>{formatStatusLabel(report.status)}</Chip>
+            {/* Lifted above the card's inset link so the dropdown is clickable. */}
+            <span className="relative z-20">
+              <StatusPill
+                disabled={isMutating}
+                onChange={(status) => onUpdateReport({ status })}
+                status={report.status}
+              />
+            </span>
             <Chip>{formatPriorityLabel(report.priority)}</Chip>
             {report.submissionStatus !==
             BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready ? (

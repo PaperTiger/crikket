@@ -5,7 +5,6 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@crikket/ui/components/ui/avatar"
-import { Badge } from "@crikket/ui/components/ui/badge"
 import { Button } from "@crikket/ui/components/ui/button"
 import {
   Select,
@@ -40,6 +39,7 @@ import {
   PRIORITY_FILTER_OPTIONS,
   STATUS_OPTIONS,
 } from "./filters"
+import { StatusPill } from "./status-pill"
 import type { BugReportListItem } from "./types"
 
 interface BugReportsIssuesTableProps {
@@ -254,7 +254,7 @@ function IssueRow({
         ) : null}
       </TableCell>
 
-      <TableCell onClick={stopRowNavigation}>
+      <TableCell onClick={(event) => event.stopPropagation()}>
         {guestMode ? (
           <TriageSelect
             disabled={isTriaging}
@@ -265,13 +265,11 @@ function IssueRow({
             width="w-[150px]"
           />
         ) : (
-          <Badge className="gap-1.5" variant="outline">
-            <span
-              aria-hidden
-              className="size-1.5 rounded-full bg-muted-foreground"
-            />
-            {formatStatusLabel(report.status)}
-          </Badge>
+          <StatusPill
+            disabled={isTriaging}
+            onChange={(status) => onTriage({ id: report.id, status })}
+            status={report.status}
+          />
         )}
       </TableCell>
 
