@@ -28,6 +28,17 @@ export const BUG_REPORT_VISIBILITY_OPTIONS = {
 export type BugReportVisibility =
   (typeof BUG_REPORT_VISIBILITY_OPTIONS)[keyof typeof BUG_REPORT_VISIBILITY_OPTIONS]
 
+// Comment audience — a separate axis from BUG_REPORT_VISIBILITY_OPTIONS (which
+// gates public share links). "everyone" = org members + granted guests;
+// "member_only" = org members only (hidden from guests and anonymous viewers).
+export const BUG_REPORT_COMMENT_VISIBILITY_OPTIONS = {
+  everyone: "everyone",
+  memberOnly: "member_only",
+} as const
+
+export type BugReportCommentVisibility =
+  (typeof BUG_REPORT_COMMENT_VISIBILITY_OPTIONS)[keyof typeof BUG_REPORT_COMMENT_VISIBILITY_OPTIONS]
+
 export const BUG_REPORT_SUBMISSION_STATUS_OPTIONS = {
   processing: "processing",
   ready: "ready",

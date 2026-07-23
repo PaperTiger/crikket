@@ -5,6 +5,7 @@ import type { Route } from "next"
 import type { RefObject } from "react"
 
 import { BugReportCanvas } from "./bug-report-canvas"
+import { CommentsPanel } from "./comments-panel"
 import {
   DescriptionField,
   StatusControl,
@@ -93,6 +94,10 @@ export function TicketMainColumn({
               ticket.update("description", { description: next })
             }
           />
+        </div>
+
+        <div className="border-t pt-4">
+          <CommentsPanel data={data} />
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ export interface PersonOption {
   name: string
   discipline: string | null
   avatarUrl: string | null
+  email: string | null
 }
 
 /**
@@ -26,7 +27,7 @@ export const listActivePeople = protectedProcedure.handler(
     await requireOrgMember(context.session)
 
     const result = await db.execute(sql`
-      select "id", "name", "discipline", "avatar_url" as "avatarUrl"
+      select "id", "name", "discipline", "avatar_url" as "avatarUrl", "email"
       from "public"."people"
       where coalesce("former", false) = false and "name" is not null
       order by "name" asc

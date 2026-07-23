@@ -169,6 +169,34 @@ export const bugReportAction = pgTable(
   (table) => [index("bug_report_action_bugReportId_idx").on(table.bugReportId)]
 )
 
+export const bugReportComment = pgTable(
+  "bug_report_comment",
+  {
+    id: text("id").primaryKey(),
+    bugReportId: text("bug_report_id")
+      .notNull()
+      .references(() => bugReport.id, { onDelete: "cascade" }),
+    // The authenticated author (org member or guest). Nullable so removing a
+    // user preserves the thread history.
+    authorId: text("author_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    // everyone (members + granted guests) | member_only (org members only).
+    // Distinct from bug_report.visibility, which gates public share links.
+    visibility: text("visibility").default("everyone").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("bug_report_comment_bugReportId_idx").on(table.bugReportId),
+    index("bug_report_comment_authorId_idx").on(table.authorId),
+  ]
+)
+
 export const bugReportArtifactCleanup = pgTable(
   "bug_report_artifact_cleanup",
   {
@@ -269,7 +297,22 @@ export const bugReportRelations = relations(bugReport, ({ one, many }) => ({
   logs: many(bugReportLog),
   networkRequests: many(bugReportNetworkRequest),
   actions: many(bugReportAction),
+  comments: many(bugReportComment),
 }))
+
+export const bugReportCommentRelations = relations(
+  bugReportComment,
+  ({ one }) => ({
+    bugReport: one(bugReport, {
+      fields: [bugReportComment.bugReportId],
+      references: [bugReport.id],
+    }),
+    author: one(user, {
+      fields: [bugReportComment.authorId],
+      references: [user.id],
+    }),
+  })
+)
 
 export const bugReportLogRelations = relations(bugReportLog, ({ one }) => ({
   bugReport: one(bugReport, {

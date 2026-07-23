@@ -10,6 +10,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@crikket/ui/components/ui/collapsible"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@crikket/ui/components/ui/tooltip"
 import { cn } from "@crikket/ui/lib/utils"
 import { ChevronDown, MonitorSmartphone } from "lucide-react"
 import { useState } from "react"
@@ -80,24 +85,38 @@ export function TicketDetailsTab({
   const parsedReporter = parseReporterFromDescription(data.description)
   const reporterName =
     data.reporter?.name?.trim() || parsedReporter?.name || "Unknown reporter"
-  const reporterEmail = parsedReporter?.email
+  // Prefer the resolved account email (members only); fall back to the address
+  // parsed from an SDK submission's description.
+  const reporterEmail = data.reporter?.email ?? parsedReporter?.email ?? null
+  const reporterIsGuest = data.reporter?.isGuest ?? false
 
   return (
     <div className="space-y-4 p-4">
       {/* Reporter */}
       <div className="flex items-center gap-3 rounded-lg border p-3">
-        <Avatar className="size-9">
+        <Avatar className="size-9" isGuest={reporterIsGuest}>
           {data.reporter?.image ? (
             <AvatarImage alt={reporterName} src={data.reporter.image} />
           ) : null}
           <AvatarFallback>{getInitials(reporterName)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <p
-            className="truncate font-medium text-sm"
-            title={reporterEmail ?? undefined}
-          >
-            Reported by {reporterName}
+          <p className="truncate font-medium text-sm">
+            Reported by{" "}
+            {reporterEmail ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className="cursor-default underline decoration-dotted underline-offset-2" />
+                  }
+                >
+                  {reporterName}
+                </TooltipTrigger>
+                <TooltipContent>{reporterEmail}</TooltipContent>
+              </Tooltip>
+            ) : (
+              reporterName
+            )}
           </p>
           <p className="truncate text-muted-foreground text-xs">
             {formatReportedAt(data.createdAt)}

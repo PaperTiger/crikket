@@ -1,11 +1,12 @@
 import { db } from "@crikket/db"
+import { member } from "@crikket/db/schema/auth"
 import { bugReport } from "@crikket/db/schema/bug-report"
 import {
   PRIORITY_OPTIONS,
   type Priority,
 } from "@crikket/shared/constants/priorities"
 import { ORPCError } from "@orpc/server"
-import { eq, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { resolveCaptureUrl } from "../lib/storage"
 import {
   assertBugReportAccessById,
@@ -31,6 +32,7 @@ export interface ReportAssignee {
   id: string
   name: string
   avatarUrl: string | null
+  email: string | null
 }
 
 /**
@@ -47,7 +49,7 @@ async function findReportAssignee(
   }
 
   const result = await db.execute(sql`
-    select "id", "name", "avatar_url" as "avatarUrl"
+    select "id", "name", "avatar_url" as "avatarUrl", "email"
     from "public"."people"
     where "id" = ${assigneeId}
     limit 1
@@ -62,6 +64,7 @@ async function findReportAssignee(
     id: row.id,
     name: row.name ?? "Unknown",
     avatarUrl: row.avatarUrl ?? null,
+    email: row.email ?? null,
   }
 }
 
@@ -140,6 +143,21 @@ export const getBugReportById = o
     // still see who a report is assigned to, read-only.
     const assignee = await findReportAssignee(report.assigneeId)
 
+    // Only real organization members (not guests, not public-share viewers) get
+    // staff emails, and only they need the guest marker resolved.
+    const memberView = access.canAccessPrivate && !access.isGuest
+
+    const reporterMembership = report.reporterId
+      ? await db.query.member.findFirst({
+          where: and(
+            eq(member.organizationId, report.organizationId),
+            eq(member.userId, report.reporterId)
+          ),
+          columns: { role: true },
+        })
+      : null
+    const reporterIsGuest = reporterMembership?.role === "guest"
+
     return {
       id: report.id,
       title: report.title,
@@ -148,7 +166,9 @@ export const getBugReportById = o
       priority,
       category: isCategory(report.category) ? report.category : null,
       assigneeId: report.assigneeId ?? null,
-      assignee,
+      assignee: assignee
+        ? { ...assignee, email: memberView ? assignee.email : null }
+        : null,
       tags: Array.isArray(report.tags) ? report.tags : [],
       url: report.url,
       attachmentUrl,
@@ -172,6 +192,8 @@ export const getBugReportById = o
         ? {
             name: report.reporter.name,
             image: report.reporter.image,
+            email: memberView ? report.reporter.email : null,
+            isGuest: reporterIsGuest,
           }
         : null,
       organization: {
