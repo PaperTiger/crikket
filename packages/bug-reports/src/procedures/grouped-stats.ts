@@ -42,6 +42,7 @@ const getBugReportGroupedStatsInputSchema = z.object({
   groupBy: z.enum(groupByValues).default(BUG_REPORT_GROUP_BY_OPTIONS.project),
   includeClosed: z.boolean().default(false),
   search: z.string().trim().max(200).optional(),
+  projectId: z.string().min(1).optional(),
 })
 
 interface RawGroupRow {
@@ -78,13 +79,25 @@ export const getBugReportGroupedStats = protectedProcedure
     const activeOrgId = requireActiveOrgId(context.session)
     const term = input.search ? `%${input.search}%` : undefined
 
+    // Reports whose capture key is assigned to this project, via the same
+    // bug_report -> capture_public_key -> project chain used elsewhere. A
+    // subquery rather than a join, so it applies to every grouping (only the
+    // project grouping joins capture_public_key).
+    const projectSql = input.projectId
+      ? sql`and b."capture_public_key_id" in (
+          select pk."id" from "capture_public_key" pk
+          where pk."project_id" = ${input.projectId}
+        )`
+      : sql``
+
     const whereSql = sql`b."organization_id" = ${activeOrgId}
       ${input.includeClosed ? sql`` : sql`and b."status" <> ${BUG_REPORT_STATUS_OPTIONS.closed}`}
       ${
         term
           ? sql`and (b."title" ilike ${term} or b."description" ilike ${term} or b."url" ilike ${term})`
           : sql``
-      }`
+      }
+      ${projectSql}`
 
     const countCols = sql`
       sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.toDo} then 1 else 0 end)::int as "toDo",
