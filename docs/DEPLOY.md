@@ -164,38 +164,63 @@ Set on the Vercel projects, not in the repo. Missing ones tend to fail **silentl
 
 ---
 
-## 6. Current known-broken state (2026-07-23)
+## 6. Post-mortem: the guest-access release (2026-07-23) — RESOLVED
 
-`master` was merged and deployed, but **migrations `0004` and `0005` were never applied.**
-Verified in production: the journal stops at migration 4, and neither
-`crikket.project_guest_grant` nor `crikket.project_team_member` exists.
+A worked example of the failure this doc exists to prevent.
 
-Live 500s:
+**What happened.** `master` was merged and Vercel deployed it, but migrations `0004` and
+`0005` were never applied — `bun db:migrate` failed before it ran any SQL. The new code
+queried tables that didn't exist:
 
-| Endpoint | Missing table | User-visible effect |
+| Endpoint | Missing table | Effect |
 | --- | --- | --- |
-| `POST /rpc/project/list` | `project_team_member` | **Projects sidebar nav + project pages broken org-wide** |
-| `POST /rpc/project/access/listOrgGuests` | `project_guest_grant` | Guest Management screen fails |
+| `POST /rpc/project/list` | `project_team_member` | Projects sidebar + project pages broken org-wide |
+| `POST /rpc/project/access/listOrgGuests` | `project_guest_grant` | Guest Management failed |
 
-Auth, the bug-reports list, and report detail are unaffected.
+Auth, the bug-reports list, and report detail were unaffected throughout.
 
-**Fix — apply the two migrations to production:**
+**Resolved** by applying both migrations. Journal now has 6 rows matching the 6 files;
+`project_team_member` backfilled 2 rows; both endpoints verified working as `crikket_app`;
+no 500s in production. No redeploy was needed — the running code picked the tables up
+immediately.
 
-```bash
-bun db:migrate   # with the production DATABASE_URL
+### Two lessons worth keeping
+
+**1. `bun db:migrate` may not reach the DB from a laptop.** The failure was connectivity, not
+SQL — the migration SQL was sound. Supabase *direct* connections
+(`db.<ref>.supabase.co:5432`) often fail without IPv6/the IPv4 add-on. Use the **transaction
+pooler** connection string (port `6543`) from Supabase → Project Settings → Database.
+
+**2. If you apply migrations out of band, set the role and schema first.** Applying SQL via
+the Supabase SQL editor or MCP runs as a privileged role with `search_path=public`. Run the
+DDL as-is and your tables are created **in `public`, owned by `postgres`** — so `crikket_app`
+gets no privileges and production stays broken in a new, more confusing way. Always prefix:
+
+```sql
+set role crikket_app;
+set search_path to crikket;
+-- ...the migration SQL...
 ```
 
-- `0004_jazzy_wasp.sql` — creates `project_guest_grant`. Schema only.
-- `0005_handy_vampiro.sql` — creates `project_team_member`, **then backfills it**: every
-  current non-guest org member is added to every current project (a project = one with a
-  capture key). `ON CONFLICT DO NOTHING`, so re-running inserts nothing the second time.
+Then verify placement *and* ownership before moving on:
 
-Then re-verify with the §3 queries and confirm the two endpoints stop 500ing. No redeploy is
-needed — the running code picks the tables up immediately.
+```sql
+select schemaname, tablename, tableowner from pg_tables where tablename = '<new_table>';
+-- expect: crikket | <new_table> | crikket_app
+```
 
-**Rollback:** there is no down migration. Both tables are additive and nothing else references
-them, so `DROP TABLE IF EXISTS "project_team_member", "project_guest_grant";` reverses it, or
-just roll the Vercel deployment back and leave the tables in place.
+And record it in Drizzle's journal, or `bun db:migrate` will try to re-apply it later:
+
+```sql
+insert into drizzle.__drizzle_migrations (hash, created_at)
+values ('<sha256 of the .sql file>', <"when" from meta/_journal.json>);
+```
+
+The journal row count must equal the number of `.sql` files in `packages/db/src/migrations/`.
+
+**Rollback (unused, kept for reference):** there is no down migration. Both tables are
+additive and nothing else references them, so
+`DROP TABLE IF EXISTS "project_team_member", "project_guest_grant";` reverses it.
 
 ---
 
