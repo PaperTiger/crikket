@@ -10,6 +10,8 @@ import { z } from "zod"
 import { findForbiddenGuestFields } from "../lib/guest-write-policy"
 import { buildProjectScopeFilter } from "../lib/project-scope"
 import {
+  categoryValues,
+  isCategory,
   isStatus,
   isVisibility,
   optionalText,
@@ -34,12 +36,18 @@ const tagsInputSchema = z.array(z.string().trim().min(1).max(40)).max(20)
 // A public.people id (Paper Tiger dashboard). `null` clears the assignee.
 const assigneeIdInputSchema = z.string().min(1).nullable()
 
+// Allows an explicit empty string (clearing the description), unlike
+// optionalText which collapses empty to undefined ("no change").
+const descriptionInputSchema = z.string().max(10_000).optional()
+
 const bugReportUpdateInputSchema = z
   .object({
     id: z.string().min(1),
     title: optionalText(200),
+    description: descriptionInputSchema,
     status: z.enum(statusValues).optional(),
     priority: z.enum(priorityValues).optional(),
+    category: z.enum(categoryValues).optional(),
     visibility: z.enum(visibilityValues).optional(),
     tags: tagsInputSchema.optional(),
     assigneeId: assigneeIdInputSchema.optional(),
@@ -47,8 +55,10 @@ const bugReportUpdateInputSchema = z
   .superRefine((value, ctx) => {
     if (
       value.title === undefined &&
+      value.description === undefined &&
       value.status === undefined &&
       value.priority === undefined &&
+      value.category === undefined &&
       value.visibility === undefined &&
       value.tags === undefined &&
       value.assigneeId === undefined
@@ -105,16 +115,20 @@ function assertViewerMayUpdate(
 
 function buildUpdateValues(input: {
   title?: string
+  description?: string
   status?: (typeof statusValues)[number]
   priority?: Priority
+  category?: (typeof categoryValues)[number]
   visibility?: (typeof visibilityValues)[number]
   tags?: string[]
   assigneeId?: string | null
 }) {
   const values: {
     title?: string
+    description?: string
     status?: string
     priority?: string
+    category?: string
     visibility?: string
     tags?: string[]
     assigneeId?: string | null
@@ -124,12 +138,20 @@ function buildUpdateValues(input: {
     values.title = input.title
   }
 
+  if (input.description !== undefined) {
+    values.description = input.description
+  }
+
   if (input.status !== undefined) {
     values.status = input.status
   }
 
   if (input.priority !== undefined) {
     values.priority = input.priority
+  }
+
+  if (input.category !== undefined) {
+    values.category = input.category
   }
 
   if (input.visibility !== undefined) {
@@ -169,6 +191,7 @@ export const updateBugReport = protectedProcedure
         title: bugReport.title,
         status: bugReport.status,
         priority: bugReport.priority,
+        category: bugReport.category,
         visibility: bugReport.visibility,
         tags: bugReport.tags,
       })
@@ -185,6 +208,7 @@ export const updateBugReport = protectedProcedure
       priority: priorityValues.includes(report.priority as Priority)
         ? (report.priority as Priority)
         : PRIORITY_OPTIONS.none,
+      category: isCategory(report.category) ? report.category : null,
       visibility: isVisibility(report.visibility)
         ? report.visibility
         : visibilityValues[1],

@@ -1,16 +1,15 @@
-import { Separator } from "@crikket/ui/components/ui/separator"
 import { cn } from "@crikket/ui/lib/utils"
 import { Globe, Info, MousePointerClick, Terminal } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { NetworkRequestsPanel } from "./network-requests-panel"
 import { ReproductionStepsList } from "./reproduction-steps-list"
+import { TicketDetailsTab } from "./ticket-details-tab"
 import { TimelineList } from "./timeline-list"
 import type {
   DebuggerAction,
   DebuggerNetworkRequest,
   DebuggerTimelineEntry,
-  DeviceInfo,
   SharedBugReport,
 } from "./types"
 
@@ -40,6 +39,7 @@ interface BugReportSidebarProps {
   activeTab: SidebarTab
   tabAction?: ReactNode
   onTabChange: (tab: SidebarTab) => void
+  onUpdated: () => Promise<unknown>
   timeline: {
     actions: ActionsSidebarState
     console: TimelineSidebarState
@@ -54,12 +54,11 @@ export function BugReportSidebar({
   activeTab,
   tabAction,
   onTabChange,
+  onUpdated,
   timeline,
   network,
   onEntrySelect,
 }: BugReportSidebarProps) {
-  const deviceInfo = data.deviceInfo as DeviceInfo | null
-  const reporterName = data.reporter?.name?.trim()
   // Console and network payloads can carry internal API responses and tokens,
   // so guests do not get these panels.
   const canViewDebugger = data.canViewDebugger
@@ -102,42 +101,7 @@ export function BugReportSidebar({
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === "details" && (
-          <div className="space-y-6 p-4">
-            <div className="space-y-4">
-              <h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                Isolate Context
-              </h3>
-              <div className="grid gap-3 text-sm">
-                <DetailRow className="break-all" label="URL" value={data.url} />
-                <DetailRow label="Browser" value={deviceInfo?.browser} />
-                <DetailRow label="OS" value={deviceInfo?.os} />
-                <DetailRow label="Viewport" value={deviceInfo?.viewport} />
-              </div>
-            </div>
-            <Separator />
-            <div className="space-y-4">
-              <h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                Ticket Info
-              </h3>
-              <div className="grid gap-3 text-sm">
-                <DetailRow
-                  className="capitalize"
-                  label="Priority"
-                  value={data.priority}
-                />
-                <DetailRow label="Reporter" value={reporterName} />
-                <DetailRow label="Org" value={data.organization.name} />
-                <div className="pt-2">
-                  <span className="mb-1 block font-medium text-muted-foreground text-xs">
-                    Description
-                  </span>
-                  <p className="min-h-[60px] whitespace-pre-wrap rounded-md border bg-muted/30 p-2 text-foreground text-sm leading-relaxed">
-                    {data.description || "No description provided."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <TicketDetailsTab data={data} onUpdated={onUpdated} />
         )}
 
         {activeTab === "actions" && (
@@ -205,34 +169,5 @@ function TabButton({
       {icon}
       {label}
     </button>
-  )
-}
-
-function DetailRow({
-  label,
-  value,
-  truncate,
-  className,
-}: {
-  label: string
-  value?: string | null
-  truncate?: boolean
-  className?: string
-}) {
-  if (!value) return null
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="font-medium text-muted-foreground text-xs">{label}</span>
-      <span
-        className={cn(
-          "wrap-break-word text-foreground text-sm",
-          truncate && "truncate",
-          className
-        )}
-        title={value}
-      >
-        {value}
-      </span>
-    </div>
   )
 }

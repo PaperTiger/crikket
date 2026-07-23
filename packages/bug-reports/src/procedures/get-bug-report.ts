@@ -11,6 +11,7 @@ import {
   assertBugReportAccessById,
   bugReportIdInputSchema,
   canViewDebugger,
+  isCategory,
   isStatus,
   statusValues,
 } from "../lib/utils"
@@ -24,6 +25,44 @@ const priorityValues = Object.values(PRIORITY_OPTIONS) as [
 export interface ReportProject {
   id: string
   name: string
+}
+
+export interface ReportAssignee {
+  id: string
+  name: string
+  avatarUrl: string | null
+}
+
+/**
+ * Resolve a report's assignee from public.people so the ticket page can show a
+ * name/avatar even to clients, who are not allowed to enumerate the staff
+ * directory (people.list is org-only). Raw SQL with an explicit `public.`
+ * qualifier — see findReportProject / people.ts for why.
+ */
+async function findReportAssignee(
+  assigneeId: string | null
+): Promise<ReportAssignee | null> {
+  if (!assigneeId) {
+    return null
+  }
+
+  const result = await db.execute(sql`
+    select "id", "name", "avatar_url" as "avatarUrl"
+    from "public"."people"
+    where "id" = ${assigneeId}
+    limit 1
+  `)
+
+  const row = (result.rows as unknown as ReportAssignee[])[0]
+  if (!row) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    name: row.name ?? "Unknown",
+    avatarUrl: row.avatarUrl ?? null,
+  }
 }
 
 /**
@@ -97,12 +136,19 @@ export const getBugReportById = o
       ? await findReportProject(report.capturePublicKeyId)
       : null
 
+    // Resolved server-side so clients (who cannot list the staff directory) can
+    // still see who a report is assigned to, read-only.
+    const assignee = await findReportAssignee(report.assigneeId)
+
     return {
       id: report.id,
       title: report.title,
       description: report.description,
       status,
       priority,
+      category: isCategory(report.category) ? report.category : null,
+      assigneeId: report.assigneeId ?? null,
+      assignee,
       tags: Array.isArray(report.tags) ? report.tags : [],
       url: report.url,
       attachmentUrl,
@@ -113,6 +159,9 @@ export const getBugReportById = o
       visibility,
       canEdit,
       canTriage,
+      // Deletion is organization-only (see deleteBugReport → requireOrgMember),
+      // which is exactly what canEdit already gates.
+      canDelete: canEdit,
       canViewDebugger: canSeeDebugger,
       isGuest: access.isGuest,
       deviceInfo: report.deviceInfo,

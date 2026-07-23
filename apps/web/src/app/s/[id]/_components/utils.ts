@@ -8,6 +8,48 @@ import type {
 
 const PLAYBACK_HIGHLIGHT_BUCKET_MS = 100
 
+// The capture SDK appends "Reported by <name> (<email>)" to the description;
+// there is no structured reporter field for SDK submissions.
+const REPORTED_BY_RE = /^\s*Reported by\s+(.+?)(?:\s*\(([^)]+)\))?\s*$/im
+const EXTRA_BLANK_LINES_RE = /\n{3,}/g
+
+export function parseReporterFromDescription(
+  description: string | null | undefined
+): { name: string; email: string | null } | null {
+  if (!description) {
+    return null
+  }
+  const match = description.match(REPORTED_BY_RE)
+  const name = match?.[1]?.trim()
+  if (!name) {
+    return null
+  }
+  return { name, email: match?.[2]?.trim() || null }
+}
+
+/** The raw "Reported by …" line, if present — preserved across edits. */
+export function extractReporterLine(
+  description: string | null | undefined
+): string | null {
+  if (!description) {
+    return null
+  }
+  return description.match(REPORTED_BY_RE)?.[0]?.trim() || null
+}
+
+/** The description with the trailing "Reported by …" line removed. */
+export function stripReporterLine(
+  description: string | null | undefined
+): string {
+  if (!description) {
+    return ""
+  }
+  return description
+    .replace(REPORTED_BY_RE, "")
+    .replace(EXTRA_BLANK_LINES_RE, "\n\n")
+    .trim()
+}
+
 export function buildActionEntry(
   action: DebuggerAction
 ): DebuggerTimelineEntry {
