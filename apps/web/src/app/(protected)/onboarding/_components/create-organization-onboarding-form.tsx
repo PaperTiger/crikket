@@ -8,14 +8,13 @@ import { useLocalStorage } from "@crikket/ui/hooks/use-local-storage"
 import { useForm } from "@tanstack/react-form"
 import { useRouter } from "nextjs-toploader/app"
 import { toast } from "sonner"
-import { AuthShell } from "@/components/auth/auth-shell"
 import {
   shouldAutoSyncOrganizationSlug,
   slugifyOrganizationName,
 } from "@/lib/organization"
 import { organizationFormSchema } from "@/lib/schema/organization"
 
-export default function CreateOrganizationOnboardingForm() {
+export function CreateOrganizationForm() {
   const router = useRouter()
   const { data: session } = authClient.useSession()
   const preferredOrgStorageKey = session?.user.id
@@ -69,18 +68,14 @@ export default function CreateOrganizationOnboardingForm() {
   })
 
   return (
-    <AuthShell
-      description="You need an organization before you can access your dashboard."
-      title="Create your organization"
+    <form
+      className="grid gap-4"
+      onSubmit={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        form.handleSubmit()
+      }}
     >
-      <form
-        className="grid gap-4"
-        onSubmit={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          form.handleSubmit()
-        }}
-      >
         <form.Field name="name">
           {(field) => {
             const isInvalid =
@@ -157,6 +152,5 @@ export default function CreateOrganizationOnboardingForm() {
             : "Create organization"}
         </Button>
       </form>
-    </AuthShell>
   )
 }
