@@ -7,7 +7,9 @@ type CreateSessionProceduresOptions<TSession> = {
 export function createSessionProcedures<TSession>(
   options: CreateSessionProceduresOptions<TSession>
 ) {
-  const o = os.$context<{ session?: TSession }>()
+  // `headers` rides along so procedures can call better-auth's server API on
+  // the caller's behalf (creating and cancelling invitations, for example).
+  const o = os.$context<{ session?: TSession; headers?: Headers }>()
   const publicProcedure = o
 
   const requireAuth = o.middleware(({ context, next }) => {

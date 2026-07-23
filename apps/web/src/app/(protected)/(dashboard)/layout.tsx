@@ -1,11 +1,10 @@
-import { authClient } from "@crikket/auth/client"
 import { ModeToggle } from "@crikket/ui/components/mode-toggle"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@crikket/ui/components/ui/sidebar"
-import { headers } from "next/headers"
+import type { Route } from "next"
 import { redirect } from "next/navigation"
 
 import { getProtectedAuthData } from "@/app/(protected)/_lib/get-protected-auth-data"
@@ -21,10 +20,17 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { organizations, session } = await getProtectedAuthData()
+  const { organizations, session, isGuest, activeRole } =
+    await getProtectedAuthData()
 
   if (!session) {
     redirect("/login")
+  }
+
+  // Guests have no business in the organization dashboard — the portal is
+  // their whole app.
+  if (isGuest) {
+    redirect("/portal" as Route)
   }
 
   if (organizations.length === 0) {
@@ -35,25 +41,11 @@ export default async function DashboardLayout({
     organizations.find(
       (organization) => organization.id === session.session.activeOrganizationId
     ) ?? organizations[0]
-  const requestHeaders = await headers()
-  const authFetchOptions = {
-    fetchOptions: {
-      headers: requestHeaders,
-    },
-  }
-  const [billingSnapshot, activeMembership] = await Promise.all([
-    client.billing.getCurrentOrganizationPlan({
-      organizationId: activeOrganization.id,
-    }),
-    authClient.organization.getActiveMemberRole({
-      query: {
-        organizationId: activeOrganization.id,
-      },
-      ...authFetchOptions,
-    }),
-  ])
+  const billingSnapshot = await client.billing.getCurrentOrganizationPlan({
+    organizationId: activeOrganization.id,
+  })
   const isDashboardLocked = billingSnapshot.plan === "free"
-  const canManageBilling = activeMembership.data?.role === "owner"
+  const canManageBilling = activeRole === "owner"
 
   return (
     <SidebarProvider className="min-h-svh items-stretch">

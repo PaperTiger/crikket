@@ -10,12 +10,12 @@ import {
   runArtifactCleanupPass,
 } from "../lib/storage"
 import { protectedProcedure } from "./context"
-import { requireActiveOrgId } from "./helpers"
+import { requireOrgMember } from "./helpers"
 
 export const deleteBugReport = protectedProcedure
   .input(z.object({ id: z.string().min(1) }))
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = await requireOrgMember(context.session)
 
     const report = await db.query.bugReport.findFirst({
       where: and(
@@ -65,7 +65,7 @@ export const deleteBugReportsBulk = protectedProcedure
     })
   )
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = await requireOrgMember(context.session)
     const uniqueIds = Array.from(new Set(input.ids))
 
     const reports = await db.query.bugReport.findMany({

@@ -78,6 +78,7 @@ const EMPTY_DASHBOARD_FILTERS: DashboardFilters = {
   statuses: [],
   priorities: [],
   visibilities: [],
+  teamMemberIds: [],
   drillDown: {},
 }
 
@@ -112,6 +113,7 @@ export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
       statuses,
       priorities,
       visibilities,
+      teamMemberIds,
       projectId,
       assigneeId,
       pageUrl,
@@ -141,6 +143,11 @@ export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
         .withOptions({ clearOnDefault: true })
         .withDefault([]),
       visibilities: parseAsArrayOf(parseAsStringLiteral(VISIBILITY_VALUES))
+        .withOptions({ clearOnDefault: true })
+        .withDefault([]),
+      // Org members whose projects to narrow to. Free-form ids, so no literal
+      // union here the way the enum filters have one.
+      teamMemberIds: parseAsArrayOf(parseAsString)
         .withOptions({ clearOnDefault: true })
         .withDefault([]),
       projectId: parseAsString.withOptions({ clearOnDefault: true }),
@@ -186,8 +193,8 @@ export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
   )
 
   const filters = useMemo<DashboardFilters>(
-    () => ({ statuses, priorities, visibilities, drillDown }),
-    [statuses, priorities, visibilities, drillDown]
+    () => ({ statuses, priorities, visibilities, teamMemberIds, drillDown }),
+    [statuses, priorities, visibilities, teamMemberIds, drillDown]
   )
 
   const hasFilters = useMemo(
@@ -195,6 +202,7 @@ export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
       filters.statuses.length > 0 ||
       filters.priorities.length > 0 ||
       filters.visibilities.length > 0 ||
+      filters.teamMemberIds.length > 0 ||
       hasDrillDown,
     [filters, hasDrillDown]
   )
@@ -252,6 +260,7 @@ export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
         statuses: EMPTY_DASHBOARD_FILTERS.statuses,
         priorities: EMPTY_DASHBOARD_FILTERS.priorities,
         visibilities: EMPTY_DASHBOARD_FILTERS.visibilities,
+        teamMemberIds: EMPTY_DASHBOARD_FILTERS.teamMemberIds,
         ...CLEARED_DRILL_DOWN,
       }).catch(() => undefined)
     },
@@ -262,6 +271,7 @@ export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
         statuses: EMPTY_DASHBOARD_FILTERS.statuses,
         priorities: EMPTY_DASHBOARD_FILTERS.priorities,
         visibilities: EMPTY_DASHBOARD_FILTERS.visibilities,
+        teamMemberIds: EMPTY_DASHBOARD_FILTERS.teamMemberIds,
         ...CLEARED_DRILL_DOWN,
       }).catch(() => undefined)
     },
@@ -277,6 +287,10 @@ export function useBugReportsFilters(options?: UseBugReportsFiltersOptions) {
     toggleVisibility: (value: DashboardFilters["visibilities"][number]) =>
       setFilterSearchQuery({
         visibilities: toggleValue(filters.visibilities, value),
+      }).catch(() => undefined),
+    toggleTeamMember: (value: string) =>
+      setFilterSearchQuery({
+        teamMemberIds: toggleValue(filters.teamMemberIds, value),
       }).catch(() => undefined),
   }
 }

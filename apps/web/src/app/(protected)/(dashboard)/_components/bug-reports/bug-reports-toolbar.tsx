@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@crikket/ui/components/ui/select"
+import { useQuery } from "@tanstack/react-query"
 import {
   Filter,
   Search,
@@ -34,6 +35,8 @@ import {
   X,
 } from "lucide-react"
 import type { ReactNode } from "react"
+
+import { orpc } from "@/utils/orpc"
 
 import {
   type DashboardDrillDown,
@@ -59,10 +62,13 @@ interface BugReportsToolbarProps {
   onToggleStatus: (value: BugReportStatus) => void
   onTogglePriority: (value: Priority) => void
   onToggleVisibility: (value: BugReportVisibility) => void
+  onToggleTeamMember?: (value: string) => void
   onClearFilters: () => void
   onClearDrillDown?: () => void
   /** Suppress the project drill-down chip when the project is a fixed context. */
   hideProjectDrillDown?: boolean
+  /** Hide filters a guest has no concept of (visibility is organization-only). */
+  guestMode?: boolean
 }
 
 function formatDrillDownLabel(
@@ -85,7 +91,8 @@ function countActiveFilters(filters: DashboardFilters): number {
   return (
     filters.statuses.length +
     filters.priorities.length +
-    filters.visibilities.length
+    filters.visibilities.length +
+    filters.teamMemberIds.length
   )
 }
 
@@ -100,11 +107,19 @@ export function BugReportsToolbar({
   onToggleStatus,
   onTogglePriority,
   onToggleVisibility,
+  onToggleTeamMember,
   onClearFilters,
   onClearDrillDown,
   hideProjectDrillDown = false,
+  guestMode = false,
 }: BugReportsToolbarProps) {
   const activeFilters = countActiveFilters(filters)
+  // Guests have no concept of the org's team, so the filter is org-only.
+  const teammatesQuery = useQuery({
+    ...orpc.project.team.listTeammates.queryOptions(),
+    enabled: !guestMode && Boolean(onToggleTeamMember),
+  })
+  const teammates = teammatesQuery.data ?? []
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort"
   const drillDownLabel = formatDrillDownLabel(
@@ -179,19 +194,48 @@ export function BugReportsToolbar({
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Visibility</DropdownMenuLabel>
-                {VISIBILITY_OPTIONS.map((visibility) => (
-                  <DropdownMenuCheckboxItem
-                    checked={filters.visibilities.includes(visibility.value)}
-                    key={visibility.value}
-                    onCheckedChange={() => onToggleVisibility(visibility.value)}
-                  >
-                    {visibility.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
+              {onToggleTeamMember && !guestMode && teammates.length > 0 ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Team</DropdownMenuLabel>
+                    {teammates.map((teammate) => (
+                      <DropdownMenuCheckboxItem
+                        checked={filters.teamMemberIds.includes(
+                          teammate.userId
+                        )}
+                        key={teammate.userId}
+                        onCheckedChange={() =>
+                          onToggleTeamMember(teammate.userId)
+                        }
+                      >
+                        {teammate.name || teammate.email}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </>
+              ) : null}
+              {guestMode ? null : (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Visibility</DropdownMenuLabel>
+                    {VISIBILITY_OPTIONS.map((visibility) => (
+                      <DropdownMenuCheckboxItem
+                        checked={filters.visibilities.includes(
+                          visibility.value
+                        )}
+                        key={visibility.value}
+                        onCheckedChange={() =>
+                          onToggleVisibility(visibility.value)
+                        }
+                      >
+                        {visibility.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

@@ -24,6 +24,8 @@ export const metadata: Metadata = {
   description: "Manage your organization profile, members, and invitations.",
 }
 
+const GUEST_ROLE = "guest"
+
 interface OrganizationSettingsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
@@ -43,6 +45,35 @@ type BillingSnapshot = Awaited<
 >
 function toIsoString(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value
+}
+
+/**
+ * Count organization members excluding guests. better-auth's listMembers has no
+ * role filter, so this pulls the full list once and counts.
+ */
+async function countTeammates(input: {
+  organizationId: string
+  rawTotalMembers: number
+  authFetchOptions: { fetchOptions: { headers: Headers } }
+}): Promise<number> {
+  if (input.rawTotalMembers === 0) {
+    return 0
+  }
+
+  const { data } = await authClient.organization.listMembers({
+    query: {
+      organizationId: input.organizationId,
+      limit: input.rawTotalMembers,
+      offset: 0,
+    },
+    ...input.authFetchOptions,
+  })
+
+  if (!data) {
+    return input.rawTotalMembers
+  }
+
+  return data.members.filter((member) => member.role !== GUEST_ROLE).length
 }
 
 export default async function OrganizationSettingsPage({
@@ -169,18 +200,36 @@ export default async function OrganizationSettingsPage({
   const currentBillingPlan = billingState.data?.plan ?? "free"
   const memberCap = billingState.data?.entitlements.memberCap ?? null
 
-  const members = (membersData?.members ?? []).map(
-    (member: OrganizationMember) => ({
-      memberId: member.id,
-      userId: member.userId,
-      name: member.user.name,
-      email: member.user.email,
-      role: member.role,
-      joinedAt: toIsoString(member.createdAt),
-    })
+  // The seat cap ignores guests (see assertOrganizationCanAddMembers), so the
+  // count driving the "cap reached" gate has to ignore them too — otherwise a
+  // few clients would block teammate invites the server would happily accept.
+  // `membersData.total` counts everyone, so the roles are re-counted here.
+  const rawTotalMembers = membersData?.total ?? 0
+  const teammateTotal = await countTeammates({
+    organizationId: activeOrganization.id,
+    rawTotalMembers,
+    authFetchOptions,
+  })
+
+  // Guests are clients on specific projects, not teammates. They live in
+  // Settings -> Guest Management, so they are filtered out of both the member
+  // table and the pending-invitation list here.
+  const teammates = (membersData?.members ?? []).filter(
+    (member: OrganizationMember) => member.role !== GUEST_ROLE
   )
+  const members = teammates.map((member: OrganizationMember) => ({
+    memberId: member.id,
+    userId: member.userId,
+    name: member.user.name,
+    email: member.user.email,
+    role: member.role,
+    joinedAt: toIsoString(member.createdAt),
+  }))
   const pendingInvitations = (invitationData ?? [])
-    .filter((invitation) => invitation.status === "pending")
+    .filter(
+      (invitation) =>
+        invitation.status === "pending" && invitation.role !== GUEST_ROLE
+    )
     .map((invitation) => ({
       invitationId: invitation.id,
       email: invitation.email,
@@ -225,7 +274,7 @@ export default async function OrganizationSettingsPage({
         members={members}
         organizationId={activeOrganization.id}
         pendingInvitations={pendingInvitations}
-        totalMembers={membersData?.total ?? 0}
+        totalMembers={teammateTotal}
       />
 
       <OrganizationDangerZone

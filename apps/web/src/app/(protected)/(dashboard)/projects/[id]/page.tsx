@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { client } from "@/utils/orpc"
 
 import { BugReportsList } from "../../_components/bug-reports/bug-reports-list"
+import { ProjectAccessAvatars } from "./_components/project-access-avatars"
 
 export const metadata: Metadata = {
   title: "Project",
@@ -29,6 +30,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             {project?.clientName ?? "Bug reports for this project"}
           </p>
         </div>
+        <ProjectAccessAvatars projectId={id} projectName={heading} />
       </div>
       <BugReportsList forcedProjectId={id} />
     </div>

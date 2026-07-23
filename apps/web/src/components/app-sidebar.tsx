@@ -22,7 +22,9 @@ import {
   CreditCard,
   FolderKanban,
   KeyRound,
+  LayoutGrid,
   UserRound,
+  UsersRound,
   Video,
 } from "lucide-react"
 import type { Route } from "next"
@@ -62,6 +64,11 @@ const navSettings = [
     icon: Building2,
   },
   {
+    title: "Guest Management",
+    url: "/settings/guests" as const,
+    icon: UsersRound,
+  },
+  {
     title: "Public Keys",
     url: "/settings/keys" as const,
     icon: KeyRound,
@@ -86,12 +93,16 @@ const navSecondary = [
 ] as const
 
 function ProjectsNavGroup({ pathname }: { pathname: string }) {
-  const projectsQuery = useQuery(orpc.project.list.queryOptions())
+  // Only the projects this person is on. Nothing is hidden — "All Projects"
+  // below shows everything, and every project stays openable.
+  const projectsQuery = useQuery(
+    orpc.project.list.queryOptions({ input: { mineOnly: true } })
+  )
   const projects = projectsQuery.data ?? []
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Projects</SidebarGroupLabel>
+      <SidebarGroupLabel>My Projects</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {projectsQuery.isLoading ? (
@@ -106,7 +117,7 @@ function ProjectsNavGroup({ pathname }: { pathname: string }) {
           ) : projects.length === 0 ? (
             <SidebarMenuItem>
               <span className="px-2 py-1.5 text-muted-foreground text-xs">
-                No projects yet
+                You're not on a project yet
               </span>
             </SidebarMenuItem>
           ) : (
@@ -134,6 +145,18 @@ function ProjectsNavGroup({ pathname }: { pathname: string }) {
               )
             })
           )}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              isActive={pathname === "/projects"}
+              render={(menuProps) => (
+                <Link href={"/projects" as Route} {...menuProps} />
+              )}
+              tooltip="All Projects"
+            >
+              <LayoutGrid />
+              <span className="text-muted-foreground">All Projects</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

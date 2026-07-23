@@ -90,6 +90,12 @@ interface EditBugReportSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdated?: () => Promise<void> | void
+  /**
+   * Guest mode: status and priority only. Title, tags, privacy and assignee are
+   * hidden, and the update sends only the two fields the server would accept —
+   * sending the others would be rejected outright.
+   */
+  triageOnly?: boolean
   report: {
     id: string
     title: string | null | undefined
@@ -105,6 +111,7 @@ export function EditBugReportSheet({
   open,
   onOpenChange,
   onUpdated,
+  triageOnly = false,
   report,
 }: EditBugReportSheetProps) {
   const [isSaving, setIsSaving] = useState(false)
@@ -125,15 +132,23 @@ export function EditBugReportSheet({
       setIsSaving(true)
 
       try {
-        await client.bugReport.update({
-          id: report.id,
-          title: value.title.trim(),
-          tags: parseTagInput(value.tagsInput),
-          status: value.status,
-          priority: value.priority,
-          visibility: value.visibility,
-          assigneeId: value.assigneeId,
-        })
+        await client.bugReport.update(
+          triageOnly
+            ? {
+                id: report.id,
+                status: value.status,
+                priority: value.priority,
+              }
+            : {
+                id: report.id,
+                title: value.title.trim(),
+                tags: parseTagInput(value.tagsInput),
+                status: value.status,
+                priority: value.priority,
+                visibility: value.visibility,
+                assigneeId: value.assigneeId,
+              }
+        )
         await onUpdated?.()
         toast.success("Bug report updated")
         onOpenChange(false)
@@ -169,9 +184,13 @@ export function EditBugReportSheet({
     <Sheet onOpenChange={handleOpenChange} open={open}>
       <SheetContent className="w-full">
         <SheetHeader>
-          <SheetTitle>Edit bug report</SheetTitle>
+          <SheetTitle>
+            {triageOnly ? "Update issue" : "Edit bug report"}
+          </SheetTitle>
           <SheetDescription>
-            Update report details, tags, priority, status, and privacy.
+            {triageOnly
+              ? "Change the status and priority of this issue."
+              : "Update report details, tags, priority, status, and privacy."}
           </SheetDescription>
         </SheetHeader>
 
@@ -184,62 +203,66 @@ export function EditBugReportSheet({
           }}
         >
           <div className="space-y-4 px-4">
-            <form.Field name="title">
-              {(field) => {
-                const isInvalid =
-                  field.state.meta.isTouched &&
-                  field.state.meta.errors.length > 0
+            {triageOnly ? null : (
+              <>
+                <form.Field name="title">
+                  {(field) => {
+                    const isInvalid =
+                      field.state.meta.isTouched &&
+                      field.state.meta.errors.length > 0
 
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Name</FieldLabel>
-                    <Input
-                      aria-invalid={isInvalid}
-                      id={field.name}
-                      maxLength={200}
-                      name={field.name}
-                      onBlur={field.handleBlur}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                      placeholder="Bug report title"
-                      value={field.state.value}
-                    />
-                    {isInvalid ? (
-                      <FieldError errors={field.state.meta.errors} />
-                    ) : null}
-                  </Field>
-                )
-              }}
-            </form.Field>
+                    return (
+                      <Field data-invalid={isInvalid}>
+                        <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                        <Input
+                          aria-invalid={isInvalid}
+                          id={field.name}
+                          maxLength={200}
+                          name={field.name}
+                          onBlur={field.handleBlur}
+                          onChange={(event) =>
+                            field.handleChange(event.target.value)
+                          }
+                          placeholder="Bug report title"
+                          value={field.state.value}
+                        />
+                        {isInvalid ? (
+                          <FieldError errors={field.state.meta.errors} />
+                        ) : null}
+                      </Field>
+                    )
+                  }}
+                </form.Field>
 
-            <form.Field name="tagsInput">
-              {(field) => {
-                const isInvalid =
-                  field.state.meta.isTouched &&
-                  field.state.meta.errors.length > 0
+                <form.Field name="tagsInput">
+                  {(field) => {
+                    const isInvalid =
+                      field.state.meta.isTouched &&
+                      field.state.meta.errors.length > 0
 
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Tags</FieldLabel>
-                    <Input
-                      aria-invalid={isInvalid}
-                      id={field.name}
-                      name={field.name}
-                      onBlur={field.handleBlur}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                      placeholder="auth, dashboard, onboarding"
-                      value={field.state.value}
-                    />
-                    {isInvalid ? (
-                      <FieldError errors={field.state.meta.errors} />
-                    ) : null}
-                  </Field>
-                )
-              }}
-            </form.Field>
+                    return (
+                      <Field data-invalid={isInvalid}>
+                        <FieldLabel htmlFor={field.name}>Tags</FieldLabel>
+                        <Input
+                          aria-invalid={isInvalid}
+                          id={field.name}
+                          name={field.name}
+                          onBlur={field.handleBlur}
+                          onChange={(event) =>
+                            field.handleChange(event.target.value)
+                          }
+                          placeholder="auth, dashboard, onboarding"
+                          value={field.state.value}
+                        />
+                        {isInvalid ? (
+                          <FieldError errors={field.state.meta.errors} />
+                        ) : null}
+                      </Field>
+                    )
+                  }}
+                </form.Field>
+              </>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <form.Field name="status">
@@ -297,44 +320,50 @@ export function EditBugReportSheet({
               </form.Field>
             </div>
 
-            <form.Field name="visibility">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>Privacy</FieldLabel>
-                  <Select
-                    onValueChange={(value) =>
-                      field.handleChange(value as BugReportVisibility)
-                    }
-                    value={field.state.value}
-                  >
-                    <SelectTrigger className="w-full" id={field.name}>
-                      <SelectValue>
-                        {getVisibilityLabel(field.state.value)}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {visibilityOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-            </form.Field>
+            {triageOnly ? null : (
+              <>
+                <form.Field name="visibility">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>Privacy</FieldLabel>
+                      <Select
+                        onValueChange={(value) =>
+                          field.handleChange(value as BugReportVisibility)
+                        }
+                        value={field.state.value}
+                      >
+                        <SelectTrigger className="w-full" id={field.name}>
+                          <SelectValue>
+                            {getVisibilityLabel(field.state.value)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {visibilityOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
+                </form.Field>
 
-            <form.Field name="assigneeId">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>Assignee</FieldLabel>
-                  <AssigneeCombobox
-                    onChange={(assigneeId) => field.handleChange(assigneeId)}
-                    value={field.state.value}
-                  />
-                </Field>
-              )}
-            </form.Field>
+                <form.Field name="assigneeId">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>Assignee</FieldLabel>
+                      <AssigneeCombobox
+                        onChange={(assigneeId) =>
+                          field.handleChange(assigneeId)
+                        }
+                        value={field.state.value}
+                      />
+                    </Field>
+                  )}
+                </form.Field>
+              </>
+            )}
           </div>
 
           <SheetFooter className="mt-0 space-y-1 border-t pt-3">

@@ -4,6 +4,7 @@ import { sendAuthEmail } from "./send-auth-email"
 import type { AuthEmailOtpType } from "./templates/email-otp-template"
 import { AuthEmailOtpTemplate } from "./templates/email-otp-template"
 import { EmailVerificationLinkTemplate } from "./templates/email-verification-link-template"
+import { GuestInvitationTemplate } from "./templates/guest-invitation-template"
 import { OrganizationInvitationTemplate } from "./templates/organization-invitation-template"
 
 type SendEmailOtpEmailInput = {
@@ -23,6 +24,14 @@ type SendOrganizationInvitationEmailInput = {
   organizationName: string
   inviterName: string
   role: string
+}
+
+type SendGuestInvitationEmailInput = {
+  email: string
+  invitationId: string
+  organizationName: string
+  inviterName: string
+  projectNames: string[]
 }
 
 const OTP_SUBJECTS: Record<AuthEmailOtpType, string> = {
@@ -110,6 +119,36 @@ export const sendOrganizationInvitationEmail = async ({
         inviterName={inviterName}
         organizationName={organizationName}
         role={role}
+      />
+    ),
+  })
+}
+
+/**
+ * Guests are clients invited to follow specific projects, so their invitation
+ * email leads with the project names rather than the organization role.
+ */
+export const sendGuestInvitationEmail = async ({
+  email,
+  invitationId,
+  organizationName,
+  inviterName,
+  projectNames,
+}: SendGuestInvitationEmailInput): Promise<void> => {
+  const invitationUrl = toAppUrl(`/invite/${invitationId}`)
+  const projectLabel =
+    projectNames.length > 0 ? projectNames.join(", ") : "a project"
+
+  await sendAuthEmail({
+    to: email,
+    subject: `${inviterName} invited you to follow ${projectLabel}`,
+    text: `${inviterName} invited you to follow ${projectLabel} on ${organizationName}'s Crikket workspace. Accept the invitation: ${invitationUrl}`,
+    react: (
+      <GuestInvitationTemplate
+        invitationUrl={invitationUrl}
+        inviterName={inviterName}
+        organizationName={organizationName}
+        projectNames={projectNames}
       />
     ),
   })

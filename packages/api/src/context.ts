@@ -9,8 +9,9 @@ export type CreateContextOptions = {
 }
 
 export async function createContext({ context }: CreateContextOptions) {
+  const headers = context.req.raw.headers
   const session = await auth.api.getSession({
-    headers: context.req.raw.headers,
+    headers,
   })
 
   const sessionId = session?.session.id
@@ -44,6 +45,7 @@ export async function createContext({ context }: CreateContextOptions) {
 
   return {
     session: session ?? undefined,
+    headers,
   }
 }
 

@@ -10,6 +10,7 @@ import {
 import {
   assertBugReportAccessById,
   bugReportIdInputSchema,
+  canViewDebugger,
   debuggerNetworkRequestPayloadInputSchema,
   debuggerNetworkRequestsInputSchema,
   normalizeDebuggerNetworkRequestPagination,
@@ -19,12 +20,21 @@ import { o } from "./context"
 export const getBugReportDebuggerEvents = o
   .input(bugReportIdInputSchema)
   .handler(async ({ context, input }) => {
-    await assertBugReportAccessById({
+    // Not gated on debugger access: this call also powers the "Steps" tab,
+    // which guests keep. The console logs in the same payload are what they
+    // must not see, so those are stripped below.
+    const { access } = await assertBugReportAccessById({
       id: input.id,
       session: context.session,
     })
 
-    return getBugReportDebuggerEventsData(input.id)
+    const events = await getBugReportDebuggerEventsData(input.id)
+
+    if (canViewDebugger(access)) {
+      return events
+    }
+
+    return { ...events, logs: [] }
   })
 
 export const getBugReportNetworkRequests = o
@@ -33,6 +43,7 @@ export const getBugReportNetworkRequests = o
     await assertBugReportAccessById({
       id: input.id,
       session: context.session,
+      requireDebuggerAccess: true,
     })
 
     const { page, perPage, offset, limit } =
@@ -66,6 +77,7 @@ export const getBugReportNetworkRequestPayload = o
     await assertBugReportAccessById({
       id: input.id,
       session: context.session,
+      requireDebuggerAccess: true,
     })
 
     const payload = await getBugReportNetworkRequestPayloadData({

@@ -16,8 +16,24 @@ import {
   buildPaginationMeta,
   type PaginatedResult,
 } from "@crikket/shared/lib/server/pagination"
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
+import { ORPCError } from "@orpc/server"
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm"
 import { z } from "zod"
+import {
+  buildProjectScopeFilter,
+  buildTeamMemberProjectFilter,
+} from "../lib/project-scope"
 import { isExpiringSignedUrl, resolveCaptureUrl } from "../lib/storage"
 import {
   formatDurationMs,
@@ -28,7 +44,7 @@ import {
   visibilityValues,
 } from "../lib/utils"
 import { protectedProcedure } from "./context"
-import { requireActiveOrgId } from "./helpers"
+import { type ProjectViewer, requireProjectViewer } from "./helpers"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -104,6 +120,11 @@ const listBugReportsInputSchema = z
     projectId: z.string().min(1).optional(),
     capturePublicKeyId: z.string().min(1).optional(),
     assigneeId: z.string().min(1).optional(),
+    /**
+     * Narrow to projects these organization members are on. A dashboard filter,
+     * not a boundary — see packages/db/src/schema/project-team.ts.
+     */
+    teamMemberIds: z.array(z.string().min(1)).max(100).optional(),
     pageUrl: z.string().min(1).max(2048).optional(),
     sort: z.enum(sortValues).default(BUG_REPORT_SORT_OPTIONS.newest),
   })
@@ -157,6 +178,30 @@ function buildOrderBy(sort: BugReportSort) {
 
 function normalizeInt(value: unknown): number {
   return typeof value === "number" ? value : Number(value ?? 0)
+}
+
+/**
+ * Narrow a query to what the viewer is allowed to see. Org members are
+ * unrestricted; guests are pinned to their granted projects, and asking for a
+ * project outside that set is refused rather than silently widened or emptied.
+ */
+function buildViewerFilters(
+  viewer: ProjectViewer,
+  requestedProjectId?: string
+): SQL[] {
+  if (!viewer.isGuest) {
+    return []
+  }
+
+  const allowedProjectIds = viewer.guestProjectIds ?? []
+
+  if (requestedProjectId && !allowedProjectIds.includes(requestedProjectId)) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "You do not have access to this project.",
+    })
+  }
+
+  return [buildProjectScopeFilter(allowedProjectIds)]
 }
 
 function normalizePriority(value: unknown): Priority {
@@ -275,10 +320,14 @@ export const listBugReports = protectedProcedure
   .input(listBugReportsInputSchema)
   .handler(
     async ({ context, input }): Promise<PaginatedResult<BugReportListItem>> => {
-      const activeOrgId = requireActiveOrgId(context.session)
+      const viewer = await requireProjectViewer(context.session)
+      const activeOrgId = viewer.organizationId
       const { page, perPage, offset, limit } = normalizePagination(input)
 
-      const filters = [eq(bugReport.organizationId, activeOrgId)]
+      const filters = [
+        eq(bugReport.organizationId, activeOrgId),
+        ...buildViewerFilters(viewer, input?.projectId),
+      ]
 
       if (input?.search) {
         const searchValue = `%${input.search}%`
@@ -331,6 +380,13 @@ export const listBugReports = protectedProcedure
         filters.push(eq(bugReport.assigneeId, input.assigneeId))
       }
 
+      const teamFilter = buildTeamMemberProjectFilter(
+        input?.teamMemberIds ?? []
+      )
+      if (teamFilter) {
+        filters.push(teamFilter)
+      }
+
       if (input?.pageUrl) {
         // Match the "page" grouping: compare on the URL minus its query string.
         filters.push(
@@ -374,7 +430,9 @@ export const listBugReports = protectedProcedure
 
 export const getBugReportDashboardStats = protectedProcedure.handler(
   async ({ context }): Promise<BugReportDashboardStats> => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const viewer = await requireProjectViewer(context.session)
+    const activeOrgId = viewer.organizationId
+    const viewerFilters = buildViewerFilters(viewer)
 
     const [result] = await db
       .select({
@@ -391,7 +449,7 @@ export const getBugReportDashboardStats = protectedProcedure.handler(
         publicCount: sql<number>`SUM(CASE WHEN ${bugReport.visibility} = 'public' THEN 1 ELSE 0 END)`,
       })
       .from(bugReport)
-      .where(eq(bugReport.organizationId, activeOrgId))
+      .where(and(eq(bugReport.organizationId, activeOrgId), ...viewerFilters))
 
     return {
       total: normalizeInt(result?.total),

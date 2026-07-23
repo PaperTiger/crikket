@@ -1,6 +1,7 @@
 import { db } from "@crikket/db"
 import { sql } from "drizzle-orm"
 import { protectedProcedure } from "./context"
+import { requireOrgMember } from "./helpers"
 
 export interface PersonOption {
   id: string
@@ -19,7 +20,11 @@ export interface PersonOption {
  * throws at import).
  */
 export const listActivePeople = protectedProcedure.handler(
-  async (): Promise<PersonOption[]> => {
+  async ({ context }): Promise<PersonOption[]> => {
+    // Organization members only — this is the Paper Tiger staff directory, not
+    // something a client guest should be able to enumerate.
+    await requireOrgMember(context.session)
+
     const result = await db.execute(sql`
       select "id", "name", "discipline", "avatar_url" as "avatarUrl"
       from "public"."people"

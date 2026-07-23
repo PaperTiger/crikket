@@ -1,7 +1,13 @@
 "use client"
 
 import { cn } from "@crikket/ui/lib/utils"
-import { Building2, CreditCard, KeyRound, UserRound } from "lucide-react"
+import {
+  Building2,
+  CreditCard,
+  KeyRound,
+  UserRound,
+  UsersRound,
+} from "lucide-react"
 import type { Route } from "next"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -18,6 +24,12 @@ const SETTINGS_ITEMS = [
     title: "Organization",
     description: "Workspace, members, invites",
     icon: Building2,
+  },
+  {
+    href: "/settings/guests",
+    title: "Guest Management",
+    description: "Client access, project grants",
+    icon: UsersRound,
   },
   {
     href: "/settings/keys",

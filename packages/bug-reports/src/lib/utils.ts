@@ -1,5 +1,6 @@
 import type { auth } from "@crikket/auth"
 import { db } from "@crikket/db"
+import { member } from "@crikket/db/schema/auth"
 import { bugReport } from "@crikket/db/schema/bug-report"
 import {
   BUG_REPORT_STATUS_OPTIONS,
@@ -10,8 +11,9 @@ import {
   type BugReportVisibility,
 } from "@crikket/shared/constants/bug-report"
 import { ORPCError } from "@orpc/server"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { z } from "zod"
+import { findProjectIdForCaptureKey, getGuestProjectIds } from "./project-scope"
 import { shouldExposeBugReportToViewer } from "./read-access-policy"
 
 const attachmentTypes = ["video", "screenshot"] as const
@@ -101,22 +103,107 @@ export function isStatus(
   )
 }
 
-export function canAccessPrivateReport(input: {
+/**
+ * What a viewer is allowed to do with one report.
+ *
+ * Resolved once per request and threaded through, because the answer for a
+ * guest depends on a database lookup (which projects they were granted) rather
+ * than on the session alone.
+ */
+export interface ReportViewerAccess {
+  /** Sees the report at all when it is private. */
+  canAccessPrivate: boolean
+  /** Title, tags, assignee, visibility, delete — organization members only. */
+  canEdit: boolean
+  /** Status and priority — organization members and granted guests. */
+  canTriage: boolean
+  /**
+   * A guest of this organization. Guests are barred from console and network
+   * payloads, which can carry internal API responses and tokens.
+   */
+  isGuest: boolean
+}
+
+/**
+ * Anonymous viewers and people outside the organization. `isGuest` is false, so
+ * public share links keep their console and network panels — visibility is what
+ * gates them, and it only ever lets them reach public reports.
+ */
+const NO_MEMBERSHIP: ReportViewerAccess = {
+  canAccessPrivate: false,
+  canEdit: false,
+  canTriage: false,
+  isGuest: false,
+}
+
+/** Console and network panels are hidden from guests only. */
+export function canViewDebugger(access: ReportViewerAccess): boolean {
+  return !access.isGuest
+}
+
+/**
+ * Being in the right organization is not enough on its own: guests are
+ * organization members too, and are limited to the projects granted to them in
+ * `project_guest_grant`.
+ */
+export async function resolveReportViewerAccess(input: {
   organizationId: string
+  capturePublicKeyId?: string | null
   session?: SessionContext
-}): boolean {
+}): Promise<ReportViewerAccess> {
+  const userId = input.session?.user.id
   const activeOrgId = input.session?.session.activeOrganizationId
-  return (
-    Boolean(input.session?.user) &&
-    Boolean(activeOrgId) &&
-    activeOrgId === input.organizationId
+
+  if (!(userId && activeOrgId) || activeOrgId !== input.organizationId) {
+    return NO_MEMBERSHIP
+  }
+
+  const activeMember = await db.query.member.findFirst({
+    where: and(
+      eq(member.organizationId, input.organizationId),
+      eq(member.userId, userId)
+    ),
+    columns: { role: true },
+  })
+
+  if (!activeMember) {
+    return NO_MEMBERSHIP
+  }
+
+  if (activeMember.role !== "guest") {
+    return {
+      canAccessPrivate: true,
+      canEdit: true,
+      canTriage: true,
+      isGuest: false,
+    }
+  }
+
+  const projectId = await findProjectIdForCaptureKey(
+    input.capturePublicKeyId ?? null
   )
+  const grantedProjectIds = projectId
+    ? await getGuestProjectIds({ userId, organizationId: input.organizationId })
+    : []
+
+  if (!(projectId && grantedProjectIds.includes(projectId))) {
+    // A guest outside their granted projects is treated like an outsider: they
+    // still see the report if it is public, and nothing otherwise.
+    return { ...NO_MEMBERSHIP, isGuest: true }
+  }
+
+  // Guests read and triage; everything else stays with the organization.
+  return {
+    canAccessPrivate: true,
+    canEdit: false,
+    canTriage: true,
+    isGuest: true,
+  }
 }
 
 export function assertVisibilityAccess(input: {
   visibility: unknown
-  organizationId: string
-  session?: SessionContext
+  access: ReportViewerAccess
 }): "public" | "private" {
   const visibility = isVisibility(input.visibility)
     ? input.visibility
@@ -125,7 +212,7 @@ export function assertVisibilityAccess(input: {
     return visibility
   }
 
-  if (canAccessPrivateReport(input)) {
+  if (input.access.canAccessPrivate) {
     return visibility
   }
 
@@ -185,7 +272,10 @@ export function formatDurationMs(durationMs: number): string {
 export async function assertBugReportAccessById(input: {
   id: string
   session?: SessionContext
+  /** Reject viewers who cannot see console/network payloads. */
+  requireDebuggerAccess?: boolean
 }): Promise<{
+  access: ReportViewerAccess
   canAccessUnready: boolean
   organizationId: string
   submissionStatus: BugReportSubmissionStatus
@@ -196,6 +286,7 @@ export async function assertBugReportAccessById(input: {
     columns: {
       id: true,
       organizationId: true,
+      capturePublicKeyId: true,
       submissionStatus: true,
       visibility: true,
     },
@@ -205,15 +296,21 @@ export async function assertBugReportAccessById(input: {
     throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
   }
 
-  const visibility = assertVisibilityAccess({
+  const access = await resolveReportViewerAccess({
     organizationId: report.organizationId,
+    capturePublicKeyId: report.capturePublicKeyId,
     session: input.session,
+  })
+  const visibility = assertVisibilityAccess({
+    access,
     visibility: report.visibility,
   })
-  const canAccessUnready = canAccessPrivateReport({
-    organizationId: report.organizationId,
-    session: input.session,
-  })
+
+  if (input.requireDebuggerAccess && !canViewDebugger(access)) {
+    throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
+  }
+
+  const canAccessUnready = access.canAccessPrivate
   const submissionStatus = isSubmissionStatus(report.submissionStatus)
     ? report.submissionStatus
     : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
@@ -228,6 +325,7 @@ export async function assertBugReportAccessById(input: {
   }
 
   return {
+    access,
     canAccessUnready,
     organizationId: report.organizationId,
     submissionStatus,

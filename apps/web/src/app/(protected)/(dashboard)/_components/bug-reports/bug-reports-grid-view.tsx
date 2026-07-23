@@ -60,6 +60,7 @@ export function BugReportsGridView({
         onSortChange={filtersState.setSort}
         onTogglePriority={filtersState.togglePriority}
         onToggleStatus={filtersState.toggleStatus}
+        onToggleTeamMember={filtersState.toggleTeamMember}
         onToggleVisibility={filtersState.toggleVisibility}
         search={filtersState.searchValue}
         sort={filtersState.sort}

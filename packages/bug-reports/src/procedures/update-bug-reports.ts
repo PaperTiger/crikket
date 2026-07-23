@@ -5,8 +5,10 @@ import {
   type Priority,
 } from "@crikket/shared/constants/priorities"
 import { ORPCError } from "@orpc/server"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, type SQL } from "drizzle-orm"
 import { z } from "zod"
+import { findForbiddenGuestFields } from "../lib/guest-write-policy"
+import { buildProjectScopeFilter } from "../lib/project-scope"
 import {
   isStatus,
   isVisibility,
@@ -15,7 +17,12 @@ import {
   visibilityValues,
 } from "../lib/utils"
 import { protectedProcedure } from "./context"
-import { normalizeTags, requireActiveOrgId } from "./helpers"
+import {
+  normalizeTags,
+  type ProjectViewer,
+  requireOrgMember,
+  requireProjectViewer,
+} from "./helpers"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -77,6 +84,25 @@ const bugReportBulkUpdateInputSchema = z
     }
   })
 
+function assertViewerMayUpdate(
+  viewer: ProjectViewer,
+  input: Record<string, unknown>
+): SQL[] {
+  if (!viewer.isGuest) {
+    return []
+  }
+
+  const forbiddenFields = findForbiddenGuestFields(input)
+
+  if (forbiddenFields.length > 0) {
+    throw new ORPCError("FORBIDDEN", {
+      message: `Guests can only change status and priority (attempted: ${forbiddenFields.join(", ")}).`,
+    })
+  }
+
+  return [buildProjectScopeFilter(viewer.guestProjectIds ?? [])]
+}
+
 function buildUpdateValues(input: {
   title?: string
   status?: (typeof statusValues)[number]
@@ -124,7 +150,8 @@ function buildUpdateValues(input: {
 export const updateBugReport = protectedProcedure
   .input(bugReportUpdateInputSchema)
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const viewer = await requireProjectViewer(context.session)
+    const viewerFilters = assertViewerMayUpdate(viewer, input)
     const values = buildUpdateValues(input)
 
     const updated = await db
@@ -133,7 +160,8 @@ export const updateBugReport = protectedProcedure
       .where(
         and(
           eq(bugReport.id, input.id),
-          eq(bugReport.organizationId, activeOrgId)
+          eq(bugReport.organizationId, viewer.organizationId),
+          ...viewerFilters
         )
       )
       .returning({
@@ -167,7 +195,8 @@ export const updateBugReport = protectedProcedure
 export const updateBugReportsBulk = protectedProcedure
   .input(bugReportBulkUpdateInputSchema)
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const viewer = await requireProjectViewer(context.session)
+    const viewerFilters = assertViewerMayUpdate(viewer, input)
     const values = buildUpdateValues(input)
     const uniqueIds = Array.from(new Set(input.ids))
 
@@ -176,8 +205,9 @@ export const updateBugReportsBulk = protectedProcedure
       .set(values)
       .where(
         and(
-          eq(bugReport.organizationId, activeOrgId),
-          inArray(bugReport.id, uniqueIds)
+          eq(bugReport.organizationId, viewer.organizationId),
+          inArray(bugReport.id, uniqueIds),
+          ...viewerFilters
         )
       )
       .returning({ id: bugReport.id })
@@ -196,7 +226,8 @@ export const updateBugReportVisibility = protectedProcedure
     })
   )
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    // Visibility controls public share links — organization members only.
+    const activeOrgId = await requireOrgMember(context.session)
 
     const updated = await db
       .update(bugReport)
