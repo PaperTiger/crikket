@@ -11,6 +11,7 @@ export interface TeamAvatarPerson {
   key: string
   label: string
   image: string | null
+  isGuest?: boolean
 }
 
 interface TeamAvatarsProps {
@@ -57,6 +58,7 @@ export function TeamAvatars({
         {visible.map((person) => (
           <Avatar
             className={cn(sizeClass, "ring-2 ring-background")}
+            isGuest={person.isGuest ?? false}
             key={person.key}
             title={person.label}
           >

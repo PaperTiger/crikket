@@ -269,7 +269,7 @@ export function GuestManagementSection({
                     <TableRow key={guest.email}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Avatar className="size-8">
+                          <Avatar className="size-8" isGuest>
                             <AvatarImage
                               alt={guest.name ?? guest.email}
                               src={guest.image ?? undefined}

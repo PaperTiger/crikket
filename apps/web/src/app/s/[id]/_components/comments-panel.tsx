@@ -188,26 +188,44 @@ function VisibilityMenu({
   )
 }
 
-interface MentionQuery {
-  /** Index of the triggering "@" in the body. */
-  start: number
-  /** Text typed after the "@", up to the caret. */
+// A mention chip in the editor is styled to match how it renders in a posted
+// comment (see renderBody), so what you type looks like what you'll get.
+const MENTION_CHIP_CLASS = "rounded bg-primary/10 px-1 font-medium text-primary"
+
+interface MentionContext {
   query: string
+  /** The "@query" text to be replaced when a person is chosen. */
+  range: Range
 }
 
 /**
- * If the caret sits inside an active "@mention" token, return where it starts
- * and what has been typed so far. A token starts at an "@" that follows
- * whitespace (or the start of the text) and runs until the next whitespace.
+ * If the caret sits inside an active "@mention" token in the contenteditable
+ * editor, return the typed query and a range covering "@query". A token starts
+ * at an "@" that follows whitespace (or the start of a text node, e.g. right
+ * after a chip) and runs to the caret.
  */
-function detectMention(value: string, caret: number): MentionQuery | null {
+function getMentionContext(editor: HTMLElement): MentionContext | null {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+    return null
+  }
+  const caretRange = selection.getRangeAt(0)
+  const node = caretRange.startContainer
+  if (node.nodeType !== Node.TEXT_NODE || !editor.contains(node)) {
+    return null
+  }
+  const text = node.textContent ?? ""
+  const caret = caretRange.startOffset
   let index = caret - 1
   while (index >= 0) {
-    const char = value[index]
+    const char = text[index]
     if (char === "@") {
-      const before = index > 0 ? value[index - 1] : " "
+      const before = index > 0 ? text[index - 1] : " "
       if (before && /\s/.test(before)) {
-        return { start: index, query: value.slice(index + 1, caret) }
+        const range = document.createRange()
+        range.setStart(node, index)
+        range.setEnd(node, caret)
+        return { query: text.slice(index + 1, caret), range }
       }
       return null
     }
@@ -219,6 +237,42 @@ function detectMention(value: string, caret: number): MentionQuery | null {
   return null
 }
 
+/** Serialize the editor DOM back to storage text with @[Name](id) markup. */
+function serializeEditor(editor: HTMLElement): string {
+  let out = ""
+  const walk = (node: Node) => {
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        out += (child.textContent ?? "").replace(/ /g, " ")
+      } else if (child instanceof HTMLElement) {
+        const mentionId = child.getAttribute("data-mention-id")
+        if (mentionId) {
+          const name = (child.textContent ?? "").replace(/^@/, "")
+          out += `@[${name}](${mentionId})`
+        } else if (child.tagName === "BR") {
+          out += "\n"
+        } else {
+          if (out.length > 0 && !out.endsWith("\n")) {
+            out += "\n"
+          }
+          walk(child)
+        }
+      }
+    }
+  }
+  walk(editor)
+  return out.trim()
+}
+
+function buildMentionChip(person: { id: string; name: string }): HTMLElement {
+  const chip = document.createElement("span")
+  chip.setAttribute("data-mention-id", person.id)
+  chip.setAttribute("contenteditable", "false")
+  chip.className = MENTION_CHIP_CLASS
+  chip.textContent = `@${person.name}`
+  return chip
+}
+
 function Composer({
   bugReportId,
   isGuest,
@@ -228,19 +282,23 @@ function Composer({
   isGuest: boolean
   onPosted: () => Promise<unknown>
 }) {
-  const [body, setBody] = useState("")
   const [visibility, setVisibility] =
     useState<BugReportCommentVisibility>(everyone)
-  const [mention, setMention] = useState<MentionQuery | null>(null)
+  const [query, setQuery] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [isEmpty, setIsEmpty] = useState(true)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const mentionRangeRef = useRef<Range | null>(null)
 
   const createMutation = useMutation(
     orpc.bugReport.createComment.mutationOptions({
       onSuccess: async () => {
-        setBody("")
+        if (editorRef.current) {
+          editorRef.current.innerHTML = ""
+        }
+        setIsEmpty(true)
         setVisibility(everyone)
-        setMention(null)
+        setQuery(null)
         await onPosted()
       },
       onError: (error) => {
@@ -255,49 +313,75 @@ function Composer({
     enabled: !isGuest,
   })
   const suggestions = useMemo(() => {
-    if (!mention) {
+    if (query === null) {
       return []
     }
-    const q = mention.query.toLowerCase()
+    const q = query.toLowerCase()
     return (peopleQuery.data ?? [])
       .filter((person) => person.name.toLowerCase().includes(q))
       .slice(0, 8)
-  }, [peopleQuery.data, mention])
+  }, [peopleQuery.data, query])
+  const isPicking = query !== null && suggestions.length > 0
 
-  const syncMention = (value: string, caret: number) => {
-    if (isGuest) {
+  const refreshMention = () => {
+    const editor = editorRef.current
+    if (isGuest || !editor) {
+      setQuery(null)
       return
     }
-    setMention(detectMention(value, caret))
-    setActiveIndex(0)
+    const context = getMentionContext(editor)
+    if (context) {
+      mentionRangeRef.current = context.range
+      setQuery(context.query)
+      setActiveIndex(0)
+    } else {
+      mentionRangeRef.current = null
+      setQuery(null)
+    }
   }
 
-  const selectPerson = (person: { id: string; name: string }) => {
-    const el = textareaRef.current
-    const caret = el?.selectionStart ?? body.length
-    const start = mention?.start ?? caret
-    const markup = `@[${person.name}](${person.id}) `
-    const next = body.slice(0, start) + markup + body.slice(caret)
-    setBody(next)
-    setMention(null)
-    requestAnimationFrame(() => {
-      el?.focus()
-      const pos = start + markup.length
-      el?.setSelectionRange(pos, pos)
-    })
+  const handleInput = () => {
+    const editor = editorRef.current
+    setIsEmpty((editor?.textContent ?? "").trim().length === 0)
+    refreshMention()
+  }
+
+  const choosePerson = (person: { id: string; name: string }) => {
+    const editor = editorRef.current
+    const range = mentionRangeRef.current
+    if (!(editor && range)) {
+      return
+    }
+    range.deleteContents()
+    const chip = buildMentionChip(person)
+    const spacer = document.createTextNode(" ")
+    range.insertNode(spacer)
+    range.insertNode(chip)
+    const selection = window.getSelection()
+    const after = document.createRange()
+    after.setStartAfter(spacer)
+    after.collapse(true)
+    selection?.removeAllRanges()
+    selection?.addRange(after)
+    mentionRangeRef.current = null
+    setQuery(null)
+    setIsEmpty(false)
+    editor.focus()
   }
 
   const submit = () => {
-    const trimmed = body.trim()
-    if (!trimmed || createMutation.isPending) {
+    const editor = editorRef.current
+    if (!editor) {
       return
     }
-    createMutation.mutate({ bugReportId, body: trimmed, visibility })
+    const body = serializeEditor(editor)
+    if (!body || createMutation.isPending) {
+      return
+    }
+    createMutation.mutate({ bugReportId, body, visibility })
   }
 
-  const isPicking = mention !== null && suggestions.length > 0
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (isPicking) {
       if (event.key === "ArrowDown") {
         event.preventDefault()
@@ -313,12 +397,12 @@ function Composer({
       }
       if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault()
-        selectPerson(suggestions[activeIndex])
+        choosePerson(suggestions[activeIndex])
         return
       }
       if (event.key === "Escape") {
         event.preventDefault()
-        setMention(null)
+        setQuery(null)
         return
       }
     }
@@ -329,20 +413,30 @@ function Composer({
   }
 
   const triggerMention = () => {
-    const el = textareaRef.current
-    const caret = el?.selectionStart ?? body.length
-    // Only prefix a space when the previous char isn't already whitespace, so
-    // the "@" reliably starts a mention token.
-    const needsSpace = caret > 0 && !/\s/.test(body[caret - 1] ?? "")
-    const insert = `${needsSpace ? " " : ""}@`
-    const next = body.slice(0, caret) + insert + body.slice(caret)
-    setBody(next)
-    requestAnimationFrame(() => {
-      el?.focus()
-      const pos = caret + insert.length
-      el?.setSelectionRange(pos, pos)
-      syncMention(next, pos)
-    })
+    const editor = editorRef.current
+    if (!editor) {
+      return
+    }
+    editor.focus()
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      const end = document.createRange()
+      end.selectNodeContents(editor)
+      end.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(end)
+    }
+    const range = selection?.getRangeAt(0)
+    if (!range) {
+      return
+    }
+    const atNode = document.createTextNode("@")
+    range.insertNode(atNode)
+    range.setStartAfter(atNode)
+    range.collapse(true)
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    handleInput()
   }
 
   return (
@@ -358,9 +452,9 @@ function Composer({
                     index === activeIndex && "bg-accent"
                   )}
                   onMouseDown={(event) => {
-                    // Keep textarea focus; mousedown fires before blur.
+                    // Keep editor focus; mousedown fires before blur.
                     event.preventDefault()
-                    selectPerson(person)
+                    choosePerson(person)
                   }}
                   onMouseEnter={() => setActiveIndex(index)}
                   type="button"
@@ -373,24 +467,28 @@ function Composer({
         </div>
       ) : null}
 
-      <Textarea
-        aria-label="Write a comment"
-        className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
-        onChange={(event) => {
-          setBody(event.target.value)
-          syncMention(event.target.value, event.target.selectionStart ?? 0)
-        }}
-        onClick={(event) =>
-          syncMention(
-            event.currentTarget.value,
-            event.currentTarget.selectionStart ?? 0
-          )
-        }
-        onKeyDown={handleKeyDown}
-        placeholder="Write a comment..."
-        ref={textareaRef}
-        value={body}
-      />
+      <div className="relative">
+        {isEmpty ? (
+          <span className="pointer-events-none absolute top-2 left-3 text-muted-foreground text-sm">
+            Write a comment...
+          </span>
+        ) : null}
+        {/* biome-ignore lint/a11y/useSemanticElements: rich mention chips need contenteditable */}
+        <div
+          aria-label="Write a comment"
+          className="min-h-20 w-full whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed outline-none"
+          contentEditable
+          onClick={refreshMention}
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          onKeyUp={refreshMention}
+          ref={editorRef}
+          role="textbox"
+          suppressContentEditableWarning
+          tabIndex={0}
+        />
+      </div>
+
       <div className="flex items-center justify-between gap-2 border-t px-2 py-1.5">
         <div className="flex items-center gap-0.5">
           {isGuest ? null : (
@@ -411,7 +509,7 @@ function Composer({
             <VisibilityMenu onChange={setVisibility} value={visibility} />
           )}
           <Button
-            disabled={!body.trim() || createMutation.isPending}
+            disabled={isEmpty || createMutation.isPending}
             onClick={submit}
             size="sm"
           >
@@ -541,9 +639,9 @@ function CommentRow({
             </div>
           </div>
         ) : (
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">
+          <div className="mt-1.5 whitespace-pre-wrap break-words rounded-lg border bg-card px-3 py-2 text-sm leading-relaxed">
             {renderBody(comment.body)}
-          </p>
+          </div>
         )}
       </div>
     </div>

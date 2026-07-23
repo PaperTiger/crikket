@@ -33,11 +33,13 @@ export function ProjectAccessAvatars({
       key: teamMember.id,
       label: teamMember.name || teamMember.email,
       image: teamMember.image,
+      isGuest: false,
     }))
     const guests = (accessQuery.data?.guests ?? []).map((guest) => ({
       key: guest.grantId,
       label: guest.name ?? guest.email,
       image: guest.image,
+      isGuest: true,
     }))
 
     return [...team, ...guests]
