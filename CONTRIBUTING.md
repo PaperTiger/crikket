@@ -1,5 +1,11 @@
 # Contributing to Crikket
 
+> ⚠️ **Paper Tiger team & coding agents: this is the _upstream open-source_ contribution
+> guide, inherited from the fork. It does not describe how we work.**
+> For branch/merge protocol, approval gates, migrations, and deploys, read
+> **[CLAUDE.md](CLAUDE.md)** and **[docs/DEPLOY.md](docs/DEPLOY.md)** instead.
+> The setup and code-style sections below are still generally accurate.
+
 Thanks for your interest in contributing to Crikket.
 
 This guide explains how to set up your local environment, make changes, and open high-quality pull requests.
