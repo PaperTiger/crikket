@@ -27,6 +27,16 @@ export function parseReporterFromDescription(
   return { name, email: match?.[2]?.trim() || null }
 }
 
+/** The raw "Reported by …" line, if present — preserved across edits. */
+export function extractReporterLine(
+  description: string | null | undefined
+): string | null {
+  if (!description) {
+    return null
+  }
+  return description.match(REPORTED_BY_RE)?.[0]?.trim() || null
+}
+
 /** The description with the trailing "Reported by …" line removed. */
 export function stripReporterLine(
   description: string | null | undefined

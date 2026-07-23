@@ -36,10 +36,15 @@ const tagsInputSchema = z.array(z.string().trim().min(1).max(40)).max(20)
 // A public.people id (Paper Tiger dashboard). `null` clears the assignee.
 const assigneeIdInputSchema = z.string().min(1).nullable()
 
+// Allows an explicit empty string (clearing the description), unlike
+// optionalText which collapses empty to undefined ("no change").
+const descriptionInputSchema = z.string().max(10_000).optional()
+
 const bugReportUpdateInputSchema = z
   .object({
     id: z.string().min(1),
     title: optionalText(200),
+    description: descriptionInputSchema,
     status: z.enum(statusValues).optional(),
     priority: z.enum(priorityValues).optional(),
     category: z.enum(categoryValues).optional(),
@@ -50,6 +55,7 @@ const bugReportUpdateInputSchema = z
   .superRefine((value, ctx) => {
     if (
       value.title === undefined &&
+      value.description === undefined &&
       value.status === undefined &&
       value.priority === undefined &&
       value.category === undefined &&
@@ -109,6 +115,7 @@ function assertViewerMayUpdate(
 
 function buildUpdateValues(input: {
   title?: string
+  description?: string
   status?: (typeof statusValues)[number]
   priority?: Priority
   category?: (typeof categoryValues)[number]
@@ -118,6 +125,7 @@ function buildUpdateValues(input: {
 }) {
   const values: {
     title?: string
+    description?: string
     status?: string
     priority?: string
     category?: string
@@ -128,6 +136,10 @@ function buildUpdateValues(input: {
 
   if (input.title !== undefined) {
     values.title = input.title
+  }
+
+  if (input.description !== undefined) {
+    values.description = input.description
   }
 
   if (input.status !== undefined) {

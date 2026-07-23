@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@crikket/ui/components/ui/dropdown-menu"
+import { Textarea } from "@crikket/ui/components/ui/textarea"
 import { cn } from "@crikket/ui/lib/utils"
 import { useMutation } from "@tanstack/react-query"
 import { ChevronDown, Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
@@ -38,6 +39,7 @@ import {
 import { statusColorStyle } from "@/lib/bug-report-status-color"
 import { client, orpc } from "@/utils/orpc"
 import type { SharedBugReport } from "./types"
+import { extractReporterLine, stripReporterLine } from "./utils"
 
 const WHITESPACE_PATTERN = /\s+/
 
@@ -46,6 +48,7 @@ type TicketUpdateInput = {
   priority?: Priority
   category?: BugReportCategory
   assigneeId?: string | null
+  description?: string
 }
 
 /**
@@ -448,6 +451,86 @@ export function TicketActionsMenu({
         variant="destructive"
       />
     </>
+  )
+}
+
+/**
+ * The description: read-only text for clients, click-to-edit for staff. Editing
+ * preserves the SDK's "Reported by …" line so the reporter card keeps resolving.
+ */
+export function DescriptionField({
+  description,
+  editable,
+  disabled = false,
+  onSave,
+}: {
+  description: string | null | undefined
+  editable: boolean
+  disabled?: boolean
+  onSave: (nextDescription: string) => void
+}) {
+  const body = stripReporterLine(description)
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(body)
+
+  const textClassName =
+    "whitespace-pre-wrap text-base text-foreground leading-relaxed"
+
+  if (isEditing) {
+    const handleSave = () => {
+      const trimmed = draft.trim()
+      const reporterLine = extractReporterLine(description)
+      const next = reporterLine
+        ? [trimmed, reporterLine].filter(Boolean).join("\n\n")
+        : trimmed
+      onSave(next)
+      setIsEditing(false)
+    }
+
+    return (
+      <div className="space-y-2">
+        <Textarea
+          autoFocus
+          className="min-h-24 text-base"
+          disabled={disabled}
+          onChange={(event) => setDraft(event.target.value)}
+          value={draft}
+        />
+        <div className="flex gap-2">
+          <Button disabled={disabled} onClick={handleSave} size="sm">
+            Save
+          </Button>
+          <Button
+            onClick={() => setIsEditing(false)}
+            size="sm"
+            variant="outline"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const text = body || "No description provided."
+
+  if (!editable) {
+    return <p className={textClassName}>{text}</p>
+  }
+
+  return (
+    <button
+      className="-mx-2 block w-full cursor-text rounded-md px-2 py-1 text-left transition-colors hover:bg-muted/50"
+      onClick={() => {
+        setDraft(body)
+        setIsEditing(true)
+      }}
+      type="button"
+    >
+      <p className={cn(textClassName, !body && "text-muted-foreground")}>
+        {text}
+      </p>
+    </button>
   )
 }
 
