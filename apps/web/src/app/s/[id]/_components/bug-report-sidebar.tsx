@@ -60,6 +60,9 @@ export function BugReportSidebar({
 }: BugReportSidebarProps) {
   const deviceInfo = data.deviceInfo as DeviceInfo | null
   const reporterName = data.reporter?.name?.trim()
+  // Console and network payloads can carry internal API responses and tokens,
+  // so guests do not get these panels.
+  const canViewDebugger = data.canViewDebugger
 
   return (
     <div className="z-20 flex h-full w-full flex-col bg-background shadow-xl md:relative md:top-0 md:border-l md:shadow-none">
@@ -77,18 +80,22 @@ export function BugReportSidebar({
           label="Steps"
           onClick={() => onTabChange("actions")}
         />
-        <TabButton
-          active={activeTab === "console"}
-          icon={<Terminal className="h-3.5 w-3.5" />}
-          label="Console"
-          onClick={() => onTabChange("console")}
-        />
-        <TabButton
-          active={activeTab === "network"}
-          icon={<Globe className="h-3.5 w-3.5" />}
-          label="Network"
-          onClick={() => onTabChange("network")}
-        />
+        {canViewDebugger ? (
+          <>
+            <TabButton
+              active={activeTab === "console"}
+              icon={<Terminal className="h-3.5 w-3.5" />}
+              label="Console"
+              onClick={() => onTabChange("console")}
+            />
+            <TabButton
+              active={activeTab === "network"}
+              icon={<Globe className="h-3.5 w-3.5" />}
+              label="Network"
+              onClick={() => onTabChange("network")}
+            />
+          </>
+        ) : null}
         {tabAction ? <div className="shrink-0">{tabAction}</div> : null}
       </div>
 
@@ -143,7 +150,7 @@ export function BugReportSidebar({
           />
         )}
 
-        {activeTab === "console" && (
+        {canViewDebugger && activeTab === "console" && (
           <TimelineList
             emptyMessage="No console logs captured."
             entries={timeline.console.entries}
@@ -154,7 +161,7 @@ export function BugReportSidebar({
           />
         )}
 
-        {activeTab === "network" && (
+        {canViewDebugger && activeTab === "network" && (
           <NetworkRequestsPanel
             bugReportId={bugReportId}
             entries={network.entries}

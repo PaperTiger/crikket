@@ -20,6 +20,7 @@ export function InvitationClientView({
 
   const callbackUrl = `${env.NEXT_PUBLIC_APP_URL}/invite/${invitationId}`
   const loginHref = `/login?callbackURL=${encodeURIComponent(callbackUrl)}`
+  const registerHref = `/register?callbackURL=${encodeURIComponent(callbackUrl)}`
 
   const acceptMutation = useMutation({
     mutationFn: async () => {
@@ -43,10 +44,13 @@ export function InvitationClientView({
           throw setActiveError
         }
       }
+
+      return data?.invitation?.role ?? null
     },
-    onSuccess: () => {
+    onSuccess: (role) => {
       toast.success("Invitation accepted")
-      router.push("/settings/organization")
+      // Guests have no dashboard — send them to their portal instead.
+      router.push(role === "guest" ? "/portal" : "/settings/organization")
       router.refresh()
     },
     onError: (error) => {
@@ -87,16 +91,29 @@ export function InvitationClientView({
         {isPending || session ? null : (
           <div className="space-y-3">
             <p className="text-muted-foreground text-sm">
-              Sign in first to accept or decline this invitation.
+              Create an account or sign in to accept this invitation.
             </p>
-            <Button
-              onClick={() => {
-                router.push(loginHref as never)
-              }}
-              size="lg"
-            >
-              Sign in to continue
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                className="sm:flex-1"
+                onClick={() => {
+                  router.push(registerHref as never)
+                }}
+                size="lg"
+              >
+                Create an account
+              </Button>
+              <Button
+                className="sm:flex-1"
+                onClick={() => {
+                  router.push(loginHref as never)
+                }}
+                size="lg"
+                variant="outline"
+              >
+                Sign in
+              </Button>
+            </div>
           </div>
         )}
 

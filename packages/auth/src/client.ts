@@ -8,9 +8,13 @@ import {
 } from "better-auth/client/plugins"
 import { createAuthClient } from "better-auth/react"
 
+import { ac, roles } from "./lib/permissions"
+
 const adminPlugin = adminClient()
 const emailOtpPlugin = emailOTPClient()
-const organizationPlugin = organizationClient()
+// Mirrors the server's access control so `guest` is a role the client knows
+// about — see packages/auth/src/lib/permissions.ts.
+const organizationPlugin = organizationClient({ ac, roles })
 const polarPlugin: ReturnType<typeof polarClient> = polarClient()
 
 type AuthClientOptions = {

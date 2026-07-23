@@ -29,6 +29,13 @@
       "when": 1784730680786,
       "tag": "0003_mature_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784765161237,
+      "tag": "0004_jazzy_wasp",
+      "breakpoints": true
     }
   ]
 }

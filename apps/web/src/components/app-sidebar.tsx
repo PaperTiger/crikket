@@ -23,6 +23,7 @@ import {
   FolderKanban,
   KeyRound,
   UserRound,
+  UsersRound,
   Video,
 } from "lucide-react"
 import type { Route } from "next"
@@ -60,6 +61,11 @@ const navSettings = [
     title: "Organization",
     url: "/settings/organization" as const,
     icon: Building2,
+  },
+  {
+    title: "Guest Management",
+    url: "/settings/guests" as const,
+    icon: UsersRound,
   },
   {
     title: "Public Keys",

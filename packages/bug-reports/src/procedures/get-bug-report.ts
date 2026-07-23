@@ -9,8 +9,8 @@ import { eq, sql } from "drizzle-orm"
 import { resolveCaptureUrl } from "../lib/storage"
 import {
   assertBugReportAccessById,
-  assertVisibilityAccess,
   bugReportIdInputSchema,
+  canViewDebugger,
   isStatus,
   statusValues,
 } from "../lib/utils"
@@ -58,7 +58,7 @@ async function findReportProject(
 export const getBugReportById = o
   .input(bugReportIdInputSchema)
   .handler(async ({ context, input }) => {
-    await assertBugReportAccessById({
+    const { access, visibility } = await assertBugReportAccessById({
       id: input.id,
       session: context.session,
     })
@@ -75,16 +75,11 @@ export const getBugReportById = o
       throw new ORPCError("NOT_FOUND", { message: "Bug report not found" })
     }
 
-    const visibility = assertVisibilityAccess({
-      organizationId: report.organizationId,
-      session: context.session,
-      visibility: report.visibility,
-    })
-    const activeOrgId = context.session?.session.activeOrganizationId
-    const canEdit =
-      Boolean(context.session?.user) &&
-      Boolean(activeOrgId) &&
-      activeOrgId === report.organizationId
+    const canEdit = access.canEdit
+    const canTriage = access.canTriage
+    // Public share viewers keep the console and network panels they have today;
+    // only guests are held back from them.
+    const canSeeDebugger = canViewDebugger(access)
 
     const status = isStatus(report.status) ? report.status : statusValues[0]
     const priority = priorityValues.includes(report.priority as Priority)
@@ -94,10 +89,11 @@ export const getBugReportById = o
       captureKey: report.captureKey,
     })
 
-    // Only for org members: /projects/[id] is behind auth, so exposing it to
-    // public share viewers would leak the project name and give them a link
-    // that just bounces to login.
-    const project = canEdit
+    // Only for signed-in viewers of this organization: the project page is
+    // behind auth, so exposing it to public share viewers would leak the
+    // project name and give them a link that just bounces to login. Guests get
+    // it too — their breadcrumb points at the portal.
+    const project = canTriage
       ? await findReportProject(report.capturePublicKeyId)
       : null
 
@@ -116,6 +112,9 @@ export const getBugReportById = o
       debuggerIngestionError: report.debuggerIngestionError,
       visibility,
       canEdit,
+      canTriage,
+      canViewDebugger: canSeeDebugger,
+      isGuest: access.isGuest,
       deviceInfo: report.deviceInfo,
       metadata: report.metadata,
       createdAt: report.createdAt.toISOString(),

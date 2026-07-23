@@ -3,7 +3,7 @@ import { BUG_REPORT_STATUS_OPTIONS } from "@crikket/shared/constants/bug-report"
 import { type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 import { protectedProcedure } from "./context"
-import { requireActiveOrgId } from "./helpers"
+import { requireOrgMember } from "./helpers"
 
 export const BUG_REPORT_GROUP_BY_OPTIONS = {
   project: "project",
@@ -75,7 +75,7 @@ function resolveLabel(
 export const getBugReportGroupedStats = protectedProcedure
   .input(getBugReportGroupedStatsInputSchema)
   .handler(async ({ context, input }): Promise<BugReportGroupedStats> => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = await requireOrgMember(context.session)
     const term = input.search ? `%${input.search}%` : undefined
 
     const whereSql = sql`b."organization_id" = ${activeOrgId}

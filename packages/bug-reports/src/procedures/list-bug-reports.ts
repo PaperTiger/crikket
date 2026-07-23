@@ -16,8 +16,21 @@ import {
   buildPaginationMeta,
   type PaginatedResult,
 } from "@crikket/shared/lib/server/pagination"
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
+import { ORPCError } from "@orpc/server"
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm"
 import { z } from "zod"
+import { buildProjectScopeFilter } from "../lib/project-scope"
 import { isExpiringSignedUrl, resolveCaptureUrl } from "../lib/storage"
 import {
   formatDurationMs,
@@ -28,7 +41,7 @@ import {
   visibilityValues,
 } from "../lib/utils"
 import { protectedProcedure } from "./context"
-import { requireActiveOrgId } from "./helpers"
+import { type ProjectViewer, requireProjectViewer } from "./helpers"
 
 const priorityValues = Object.values(PRIORITY_OPTIONS) as [
   Priority,
@@ -159,6 +172,30 @@ function normalizeInt(value: unknown): number {
   return typeof value === "number" ? value : Number(value ?? 0)
 }
 
+/**
+ * Narrow a query to what the viewer is allowed to see. Org members are
+ * unrestricted; guests are pinned to their granted projects, and asking for a
+ * project outside that set is refused rather than silently widened or emptied.
+ */
+function buildViewerFilters(
+  viewer: ProjectViewer,
+  requestedProjectId?: string
+): SQL[] {
+  if (!viewer.isGuest) {
+    return []
+  }
+
+  const allowedProjectIds = viewer.guestProjectIds ?? []
+
+  if (requestedProjectId && !allowedProjectIds.includes(requestedProjectId)) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "You do not have access to this project.",
+    })
+  }
+
+  return [buildProjectScopeFilter(allowedProjectIds)]
+}
+
 function normalizePriority(value: unknown): Priority {
   return priorityValues.includes(value as Priority)
     ? (value as Priority)
@@ -275,10 +312,14 @@ export const listBugReports = protectedProcedure
   .input(listBugReportsInputSchema)
   .handler(
     async ({ context, input }): Promise<PaginatedResult<BugReportListItem>> => {
-      const activeOrgId = requireActiveOrgId(context.session)
+      const viewer = await requireProjectViewer(context.session)
+      const activeOrgId = viewer.organizationId
       const { page, perPage, offset, limit } = normalizePagination(input)
 
-      const filters = [eq(bugReport.organizationId, activeOrgId)]
+      const filters = [
+        eq(bugReport.organizationId, activeOrgId),
+        ...buildViewerFilters(viewer, input?.projectId),
+      ]
 
       if (input?.search) {
         const searchValue = `%${input.search}%`
@@ -374,7 +415,9 @@ export const listBugReports = protectedProcedure
 
 export const getBugReportDashboardStats = protectedProcedure.handler(
   async ({ context }): Promise<BugReportDashboardStats> => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const viewer = await requireProjectViewer(context.session)
+    const activeOrgId = viewer.organizationId
+    const viewerFilters = buildViewerFilters(viewer)
 
     const [result] = await db
       .select({
@@ -391,7 +434,7 @@ export const getBugReportDashboardStats = protectedProcedure.handler(
         publicCount: sql<number>`SUM(CASE WHEN ${bugReport.visibility} = 'public' THEN 1 ELSE 0 END)`,
       })
       .from(bugReport)
-      .where(eq(bugReport.organizationId, activeOrgId))
+      .where(and(eq(bugReport.organizationId, activeOrgId), ...viewerFilters))
 
     return {
       total: normalizeInt(result?.total),

@@ -17,8 +17,16 @@ import { organization } from "better-auth/plugins/organization"
 import {
   sendEmailOtpEmail,
   sendEmailVerificationLinkEmail,
+  sendGuestInvitationEmail,
   sendOrganizationInvitationEmail,
 } from "./lib/email/auth-emails"
+import {
+  bindGuestGrantsToUser,
+  deleteGuestGrantsForUser,
+  hasPendingInvitation,
+  listPendingGuestProjectNames,
+} from "./lib/guest-grants"
+import { ac, isGuestRole, roles } from "./lib/permissions"
 
 const MINUTE = 60
 const HOUR = 60 * MINUTE
@@ -125,17 +133,23 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          await Promise.resolve()
-
           const email = user.email?.toLowerCase() ?? ""
           const domain = email.split("@")[1] ?? ""
 
           const allowAll = allowedSignupDomains.includes("*")
-          if (
-            !allowAll &&
-            allowedSignupDomains.length > 0 &&
-            !allowedSignupDomains.includes(domain)
-          ) {
+          const domainAllowed =
+            allowAll ||
+            allowedSignupDomains.length === 0 ||
+            allowedSignupDomains.includes(domain)
+
+          // Guests are clients on their own email domains, so the signup
+          // allowlist would block every guest. Anyone holding a live invitation
+          // was vouched for by an org admin already.
+          const invited = domainAllowed
+            ? false
+            : await hasPendingInvitation(email)
+
+          if (!(domainAllowed || invited)) {
             throw new APIError("UNPROCESSABLE_ENTITY", {
               message: `Sign up is only available for ${allowedSignupDomains.filter((d) => d !== "*").join(", ")} domains.`,
             })
@@ -210,7 +224,25 @@ export const auth = betterAuth({
   plugins: [
     admin(),
     organization({
+      ac,
+      roles,
       sendInvitationEmail: async (data) => {
+        if (isGuestRole(data.role)) {
+          const projectNames = await listPendingGuestProjectNames({
+            organizationId: data.organization.id,
+            email: data.email,
+          })
+
+          await sendGuestInvitationEmail({
+            email: data.email,
+            invitationId: data.id,
+            inviterName: data.inviter.user.name,
+            organizationName: data.organization.name,
+            projectNames,
+          })
+          return
+        }
+
         await sendOrganizationInvitationEmail({
           email: data.email,
           invitationId: data.id,
@@ -220,11 +252,42 @@ export const auth = betterAuth({
         })
       },
       organizationHooks: {
+        // Guests are clients following along, not teammates — they do not
+        // consume a paid seat, so the member cap does not apply to them.
         beforeAcceptInvitation: async ({ invitation }) => {
+          if (isGuestRole(invitation.role)) {
+            return
+          }
+
           await assertOrganizationCanAddMembers(invitation.organizationId)
         },
         beforeCreateInvitation: async ({ invitation }) => {
+          if (isGuestRole(invitation.role)) {
+            return
+          }
+
           await assertOrganizationCanAddMembers(invitation.organizationId)
+        },
+        // Grants are written at invite time keyed by email only, because the
+        // guest may not have an account yet. Bind them now that one exists.
+        afterAcceptInvitation: async ({ invitation, member }) => {
+          if (!isGuestRole(invitation.role)) {
+            return
+          }
+
+          await bindGuestGrantsToUser({
+            organizationId: invitation.organizationId,
+            email: invitation.email,
+            userId: member.userId,
+          })
+        },
+        // Leaving the organization drops every project grant, so a re-invite
+        // starts from no access rather than resurrecting the old list.
+        afterRemoveMember: async ({ member }) => {
+          await deleteGuestGrantsForUser({
+            organizationId: member.organizationId,
+            userId: member.userId,
+          })
         },
       },
     }),

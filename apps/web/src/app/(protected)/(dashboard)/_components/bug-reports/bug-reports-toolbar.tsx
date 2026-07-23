@@ -63,6 +63,8 @@ interface BugReportsToolbarProps {
   onClearDrillDown?: () => void
   /** Suppress the project drill-down chip when the project is a fixed context. */
   hideProjectDrillDown?: boolean
+  /** Hide filters a guest has no concept of (visibility is organization-only). */
+  guestMode?: boolean
 }
 
 function formatDrillDownLabel(
@@ -103,6 +105,7 @@ export function BugReportsToolbar({
   onClearFilters,
   onClearDrillDown,
   hideProjectDrillDown = false,
+  guestMode = false,
 }: BugReportsToolbarProps) {
   const activeFilters = countActiveFilters(filters)
   const selectedSortLabel =
@@ -179,19 +182,27 @@ export function BugReportsToolbar({
                   </DropdownMenuCheckboxItem>
                 ))}
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Visibility</DropdownMenuLabel>
-                {VISIBILITY_OPTIONS.map((visibility) => (
-                  <DropdownMenuCheckboxItem
-                    checked={filters.visibilities.includes(visibility.value)}
-                    key={visibility.value}
-                    onCheckedChange={() => onToggleVisibility(visibility.value)}
-                  >
-                    {visibility.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
+              {guestMode ? null : (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Visibility</DropdownMenuLabel>
+                    {VISIBILITY_OPTIONS.map((visibility) => (
+                      <DropdownMenuCheckboxItem
+                        checked={filters.visibilities.includes(
+                          visibility.value
+                        )}
+                        key={visibility.value}
+                        onCheckedChange={() =>
+                          onToggleVisibility(visibility.value)
+                        }
+                      >
+                        {visibility.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

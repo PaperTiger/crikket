@@ -11,12 +11,12 @@ import {
   finalizeBugReportUploadInputSchema,
 } from "../lib/upload-session"
 import { protectedProcedure } from "./context"
-import { normalizeTags, requireActiveOrgId } from "./helpers"
+import { normalizeTags, requireOrgMember } from "./helpers"
 
 export const createBugReportUpload = protectedProcedure
   .input(createBugReportUploadSessionInputSchema)
-  .handler(({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+  .handler(async ({ context, input }) => {
+    const activeOrgId = await requireOrgMember(context.session)
 
     return createBugReportUploadSession({
       input,
@@ -29,8 +29,8 @@ export const createBugReportUpload = protectedProcedure
 
 export const finalizeBugReportUploadProcedure = protectedProcedure
   .input(finalizeBugReportUploadInputSchema)
-  .handler(({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+  .handler(async ({ context, input }) => {
+    const activeOrgId = await requireOrgMember(context.session)
 
     return finalizeBugReportUpload({
       input,
@@ -45,7 +45,7 @@ export const retryBugReportDebuggerIngestionProcedure = protectedProcedure
     })
   )
   .handler(async ({ context, input }) => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = await requireOrgMember(context.session)
     const result = await retryBugReportDebuggerIngestion({
       bugReportId: input.id,
       organizationId: activeOrgId,

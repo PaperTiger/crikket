@@ -2,7 +2,7 @@ import { db } from "@crikket/db"
 import { sql } from "drizzle-orm"
 import { z } from "zod"
 import { protectedProcedure } from "./context"
-import { requireActiveOrgId } from "./helpers"
+import { requireOrgMember } from "./helpers"
 
 export interface CrikketProject {
   id: string
@@ -20,7 +20,7 @@ export interface CrikketProject {
  */
 export const listCrikketProjects = protectedProcedure.handler(
   async ({ context }): Promise<CrikketProject[]> => {
-    const activeOrgId = requireActiveOrgId(context.session)
+    const activeOrgId = await requireOrgMember(context.session)
 
     const result = await db.execute(sql`
       select p."id", p."name", p."client_name" as "clientName",

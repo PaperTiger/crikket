@@ -15,6 +15,8 @@ export const getProtectedAuthData = cache(async () => {
     return {
       organizations: [],
       session: null,
+      activeRole: null,
+      isGuest: false,
     }
   }
 
@@ -24,8 +26,30 @@ export const getProtectedAuthData = cache(async () => {
     },
   })
 
+  const activeOrganization =
+    organizations?.find(
+      (organization) => organization.id === session.session.activeOrganizationId
+    ) ?? organizations?.[0]
+
+  const { data: activeMembership } = activeOrganization
+    ? await authClient.organization.getActiveMemberRole({
+        query: {
+          organizationId: activeOrganization.id,
+        },
+        fetchOptions: {
+          headers: requestHeaders,
+        },
+      })
+    : { data: null }
+
+  const activeRole = activeMembership?.role ?? null
+
   return {
     organizations: organizations ?? [],
     session,
+    activeRole,
+    // Guests are clients invited to follow specific projects. They get the
+    // portal at /portal, not the organization dashboard.
+    isGuest: activeRole === "guest",
   }
 })

@@ -5,7 +5,7 @@ import {
   organizationEntitlement,
 } from "@crikket/db/schema/billing"
 import { env } from "@crikket/env/server"
-import { count, eq } from "drizzle-orm"
+import { and, count, eq, ne } from "drizzle-orm"
 
 import {
   BILLING_PLAN,
@@ -79,10 +79,14 @@ export async function assertOrganizationCanAddMembers(
     return
   }
 
+  // Guests are clients invited to follow specific projects. They are not
+  // teammates and do not consume a paid seat.
   const memberCountResult = await db
     .select({ value: count() })
     .from(member)
-    .where(eq(member.organizationId, organizationId))
+    .where(
+      and(eq(member.organizationId, organizationId), ne(member.role, "guest"))
+    )
   const memberCount = memberCountResult[0]?.value ?? 0
 
   if (memberCount + incomingMembers <= memberCap) {

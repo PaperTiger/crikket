@@ -263,19 +263,21 @@ function renderBugReportLoadedView(input: {
       <BugReportHeader
         data={input.data}
         editAction={
-          input.data.canEdit ? (
+          input.data.canTriage ? (
             <Button
               onClick={() => input.onToggleEditSheet(true)}
               size="sm"
               variant="ghost"
             >
               <Edit />
-              <span className="sr-only">Edit</span>
+              <span className="sr-only">
+                {input.data.canEdit ? "Edit" : "Update status and priority"}
+              </span>
             </Button>
           ) : null
         }
       />
-      {input.data.canEdit ? (
+      {input.data.canTriage ? (
         <EditBugReportSheet
           onOpenChange={input.onToggleEditSheet}
           onUpdated={async () => {
@@ -290,6 +292,8 @@ function renderBugReportLoadedView(input: {
             priority: input.data.priority,
             visibility: input.data.visibility,
           }}
+          // Guests get status and priority; the rest stays with the org.
+          triageOnly={!input.data.canEdit}
         />
       ) : null}
 
@@ -386,6 +390,10 @@ export function BugReportView({ id }: BugReportViewProps) {
   )
   const [networkSearch] = useQueryState("networkSearch", parseAsString)
 
+  // Defaults to true so the panels are not blocked while the report loads;
+  // guests come back false and lose the console and network tabs.
+  const canViewDebuggerPanels = data?.canViewDebugger ?? true
+
   const shouldOpenDebuggerTimelineTabByDefault =
     activeTab === "actions" || activeTab === "console"
   const shouldOpenNetworkTabByDefault = activeTab === "network"
@@ -420,7 +428,9 @@ export function BugReportView({ id }: BugReportViewProps) {
         lastPage.pagination.hasNextPage
           ? lastPage.pagination.page + 1
           : undefined,
-      enabled: Boolean(id) && shouldLoadNetworkRequests,
+      // Guests have no network panel, and the endpoint refuses them anyway.
+      enabled:
+        Boolean(id) && shouldLoadNetworkRequests && canViewDebuggerPanels,
     })
   )
 
