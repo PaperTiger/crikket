@@ -30,7 +30,10 @@ import {
   sql,
 } from "drizzle-orm"
 import { z } from "zod"
-import { buildProjectScopeFilter } from "../lib/project-scope"
+import {
+  buildProjectScopeFilter,
+  buildTeamMemberProjectFilter,
+} from "../lib/project-scope"
 import { isExpiringSignedUrl, resolveCaptureUrl } from "../lib/storage"
 import {
   formatDurationMs,
@@ -117,6 +120,11 @@ const listBugReportsInputSchema = z
     projectId: z.string().min(1).optional(),
     capturePublicKeyId: z.string().min(1).optional(),
     assigneeId: z.string().min(1).optional(),
+    /**
+     * Narrow to projects these organization members are on. A dashboard filter,
+     * not a boundary — see packages/db/src/schema/project-team.ts.
+     */
+    teamMemberIds: z.array(z.string().min(1)).max(100).optional(),
     pageUrl: z.string().min(1).max(2048).optional(),
     sort: z.enum(sortValues).default(BUG_REPORT_SORT_OPTIONS.newest),
   })
@@ -370,6 +378,13 @@ export const listBugReports = protectedProcedure
 
       if (input?.assigneeId) {
         filters.push(eq(bugReport.assigneeId, input.assigneeId))
+      }
+
+      const teamFilter = buildTeamMemberProjectFilter(
+        input?.teamMemberIds ?? []
+      )
+      if (teamFilter) {
+        filters.push(teamFilter)
       }
 
       if (input?.pageUrl) {

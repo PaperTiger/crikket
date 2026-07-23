@@ -102,6 +102,8 @@ export interface DashboardFilters {
   statuses: BugReportStatus[]
   priorities: Priority[]
   visibilities: BugReportVisibility[]
+  /** Org member user ids — narrows to the projects those people are on. */
+  teamMemberIds: string[]
   drillDown: DashboardDrillDown
 }
 
@@ -109,6 +111,7 @@ export const EMPTY_FILTERS: DashboardFilters = {
   statuses: [],
   priorities: [],
   visibilities: [],
+  teamMemberIds: [],
   drillDown: {},
 }
 

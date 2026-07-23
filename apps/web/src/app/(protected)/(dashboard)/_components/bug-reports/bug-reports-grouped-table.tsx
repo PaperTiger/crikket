@@ -46,6 +46,10 @@ export function BugReportsGroupedTable({
         includeClosed,
         search: debouncedSearch || undefined,
         projectId: filtersState.filters.drillDown.projectId,
+        teamMemberIds:
+          filtersState.filters.teamMemberIds.length > 0
+            ? filtersState.filters.teamMemberIds
+            : undefined,
       },
     })
   )

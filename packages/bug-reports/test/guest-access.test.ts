@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test"
 import { findForbiddenGuestFields } from "../src/lib/guest-write-policy"
-import { buildProjectScopeFilter } from "../src/lib/project-scope"
+import {
+  buildProjectScopeFilter,
+  buildTeamMemberProjectFilter,
+} from "../src/lib/project-scope"
 
 describe("findForbiddenGuestFields", () => {
   it("allows a status change", () => {
@@ -73,5 +76,18 @@ describe("buildProjectScopeFilter", () => {
 
     expect(rendered).toContain("false")
     expect(rendered).not.toContain("capture_public_key")
+  })
+})
+
+describe("buildTeamMemberProjectFilter", () => {
+  it("applies no filter when nobody is selected", () => {
+    // Deliberately the INVERSE of buildProjectScopeFilter above. That one is a
+    // security boundary where empty must match nothing; this one is a dashboard
+    // filter where empty must mean "show everything". Getting these two the
+    // wrong way round would either hide all of an org member's reports or hand
+    // a guest the whole organization.
+    // The populated branch builds a subquery off the live `db` and so belongs
+    // in the end-to-end pass, not here.
+    expect(buildTeamMemberProjectFilter([])).toBeNull()
   })
 })

@@ -1,6 +1,7 @@
 import { db } from "@crikket/db"
 import { bugReport, capturePublicKey } from "@crikket/db/schema/bug-report"
 import { projectGuestGrant } from "@crikket/db/schema/guest-access"
+import { projectTeamMember } from "@crikket/db/schema/project-team"
 import { and, eq, inArray, type SQL, sql } from "drizzle-orm"
 
 /**
@@ -47,6 +48,37 @@ export function buildProjectScopeFilter(projectIds: string[]): SQL {
       .select({ id: capturePublicKey.id })
       .from(capturePublicKey)
       .where(inArray(capturePublicKey.projectId, projectIds))
+  )
+}
+
+/**
+ * Narrow bug reports to projects that any of these organization members are on.
+ *
+ * Note the semantics are the OPPOSITE of `buildProjectScopeFilter` above: an
+ * empty list means "no filter", not "match nothing". This is a user-chosen
+ * dashboard filter, not a security boundary — org members can see every report
+ * in their organization regardless of team membership, and no caller may use
+ * this to gate a read.
+ */
+export function buildTeamMemberProjectFilter(userIds: string[]): SQL | null {
+  if (userIds.length === 0) {
+    return null
+  }
+
+  return inArray(
+    bugReport.capturePublicKeyId,
+    db
+      .select({ id: capturePublicKey.id })
+      .from(capturePublicKey)
+      .where(
+        inArray(
+          capturePublicKey.projectId,
+          db
+            .select({ projectId: projectTeamMember.projectId })
+            .from(projectTeamMember)
+            .where(inArray(projectTeamMember.userId, userIds))
+        )
+      )
   )
 }
 

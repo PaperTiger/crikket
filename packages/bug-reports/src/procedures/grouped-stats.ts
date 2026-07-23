@@ -42,6 +42,8 @@ const getBugReportGroupedStatsInputSchema = z.object({
   groupBy: z.enum(groupByValues).default(BUG_REPORT_GROUP_BY_OPTIONS.project),
   includeClosed: z.boolean().default(false),
   search: z.string().trim().max(200).optional(),
+  /** Narrow to projects these organization members are on. */
+  teamMemberIds: z.array(z.string().min(1)).max(100).optional(),
 })
 
 interface RawGroupRow {
@@ -78,13 +80,32 @@ export const getBugReportGroupedStats = protectedProcedure
     const activeOrgId = await requireOrgMember(context.session)
     const term = input.search ? `%${input.search}%` : undefined
 
+    const teamMemberIds = input.teamMemberIds ?? []
+    // Narrow to projects these members are on, via the same
+    // bug_report -> capture_public_key -> project chain used elsewhere.
+    const teamSql =
+      teamMemberIds.length > 0
+        ? sql`and b."capture_public_key_id" in (
+            select k."id" from "capture_public_key" k
+            where k."project_id" in (
+              select t."project_id" from "project_team_member" t
+              where t."organization_id" = ${activeOrgId}
+                and t."user_id" in (${sql.join(
+                  teamMemberIds.map((userId) => sql`${userId}`),
+                  sql`, `
+                )})
+            )
+          )`
+        : sql``
+
     const whereSql = sql`b."organization_id" = ${activeOrgId}
       ${input.includeClosed ? sql`` : sql`and b."status" <> ${BUG_REPORT_STATUS_OPTIONS.closed}`}
       ${
         term
           ? sql`and (b."title" ilike ${term} or b."description" ilike ${term} or b."url" ilike ${term})`
           : sql``
-      }`
+      }
+      ${teamSql}`
 
     const countCols = sql`
       sum(case when b."status" = ${BUG_REPORT_STATUS_OPTIONS.toDo} then 1 else 0 end)::int as "toDo",

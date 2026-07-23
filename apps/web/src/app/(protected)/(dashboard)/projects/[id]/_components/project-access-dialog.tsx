@@ -1,5 +1,6 @@
 "use client"
 
+import { ConfirmationDialog } from "@crikket/ui/components/dialogs/confirmation-dialog"
 import {
   Avatar,
   AvatarFallback,
@@ -17,7 +18,7 @@ import {
 import { Input } from "@crikket/ui/components/ui/input"
 import { Separator } from "@crikket/ui/components/ui/separator"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Building2, Loader2, X } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 import * as React from "react"
 import { toast } from "sonner"
 
@@ -32,6 +33,7 @@ interface ProjectAccessDialogProps {
 }
 
 const WHITESPACE_RE = /\s+/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function initials(value: string): string {
   const source = value.trim() || "?"
@@ -51,6 +53,7 @@ export function ProjectAccessDialog({
 }: ProjectAccessDialogProps) {
   const queryClient = useQueryClient()
   const [email, setEmail] = React.useState("")
+  const [pendingSelfRemoval, setPendingSelfRemoval] = React.useState(false)
 
   const accessQueryOptions = orpc.project.access.list.queryOptions({
     input: { projectId },
@@ -116,13 +119,64 @@ export function ProjectAccessDialog({
     })
   )
 
-  const orgMembers = accessQuery.data?.orgMembers ?? []
+  const addTeamMutation = useMutation(
+    orpc.project.team.add.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Added to the project")
+        await refresh()
+      },
+      onError: (error) => {
+        toast.error(getRequestErrorMessage(error))
+      },
+    })
+  )
+
+  const removeTeamMutation = useMutation(
+    orpc.project.team.remove.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Removed from the project")
+        setPendingSelfRemoval(false)
+        await refresh()
+      },
+      onError: (error) => {
+        toast.error(getRequestErrorMessage(error))
+      },
+    })
+  )
+
+  const teamMembers = accessQuery.data?.teamMembers ?? []
+  const availableMembers = accessQuery.data?.availableMembers ?? []
   const guests = accessQuery.data?.guests ?? []
+  const viewerUserId = accessQuery.data?.viewerUserId ?? ""
+  const viewerIsOnProject = accessQuery.data?.viewerIsOnProject ?? false
+  const canManageOthers = accessQuery.data?.viewerCanManageOthers ?? false
   const isBusy =
     inviteMutation.isPending ||
     removeMutation.isPending ||
     cancelMutation.isPending ||
-    resendMutation.isPending
+    resendMutation.isPending ||
+    addTeamMutation.isPending ||
+    removeTeamMutation.isPending
+
+  // The one field does double duty: it matches teammates who aren't on the
+  // project yet (click to add, no email sent), and failing that it invites the
+  // typed address as a guest.
+  const suggestions = React.useMemo(() => {
+    const term = email.trim().toLowerCase()
+    if (term.length === 0) {
+      return []
+    }
+
+    return availableMembers
+      .filter(
+        (candidate) =>
+          candidate.name.toLowerCase().includes(term) ||
+          candidate.email.toLowerCase().includes(term)
+      )
+      .slice(0, 5)
+  }, [availableMembers, email])
+
+  const looksLikeEmail = EMAIL_RE.test(email.trim())
 
   const handleInvite = (event: React.FormEvent) => {
     event.preventDefault()
@@ -131,7 +185,22 @@ export function ProjectAccessDialog({
       return
     }
 
+    // Enter on an exact teammate match adds them rather than emailing them.
+    const exactTeammate = availableMembers.find(
+      (candidate) => candidate.email.toLowerCase() === trimmed.toLowerCase()
+    )
+    if (exactTeammate) {
+      addTeamMutation.mutate({ projectId, userId: exactTeammate.userId })
+      setEmail("")
+      return
+    }
+
     inviteMutation.mutate({ projectId, email: trimmed })
+  }
+
+  const addTeammateFromSuggestion = (userId: string) => {
+    addTeamMutation.mutate({ projectId, userId })
+    setEmail("")
   }
 
   return (
@@ -145,43 +214,160 @@ export function ProjectAccessDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="flex items-center gap-2" onSubmit={handleInvite}>
-          <Input
-            autoComplete="off"
-            disabled={isBusy}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="Invite people by email"
-            type="email"
-            value={email}
-          />
-          <Button disabled={isBusy || email.trim().length === 0} type="submit">
-            {inviteMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              "Invite"
-            )}
-          </Button>
-        </form>
+        <div className="space-y-1">
+          <form className="flex items-center gap-2" onSubmit={handleInvite}>
+            <Input
+              autoComplete="off"
+              disabled={isBusy}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Invite people by name or email"
+              value={email}
+            />
+            <Button
+              disabled={isBusy || !looksLikeEmail}
+              title={
+                looksLikeEmail
+                  ? undefined
+                  : "Enter a full email address to invite someone new"
+              }
+              type="submit"
+            >
+              {inviteMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                "Invite"
+              )}
+            </Button>
+          </form>
+
+          {suggestions.length > 0 ? (
+            <div className="overflow-hidden rounded-lg border">
+              {suggestions.map((candidate) => (
+                <button
+                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                  disabled={isBusy}
+                  key={candidate.id}
+                  onClick={() => addTeammateFromSuggestion(candidate.userId)}
+                  type="button"
+                >
+                  <Avatar className="size-7">
+                    <AvatarImage
+                      alt={candidate.name}
+                      src={candidate.image ?? undefined}
+                    />
+                    <AvatarFallback className="text-xs">
+                      {initials(candidate.name || candidate.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-sm">
+                      {candidate.name}
+                    </span>
+                    <span className="block truncate text-muted-foreground text-xs">
+                      {candidate.email}
+                    </span>
+                  </span>
+                  <Badge variant="outline">Add to team</Badge>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {email.trim().length > 0 &&
+          suggestions.length === 0 &&
+          !looksLikeEmail ? (
+            <p className="px-1 text-muted-foreground text-xs">
+              No teammate matches "{email.trim()}". Type a full email address to
+              invite them as a guest.
+            </p>
+          ) : null}
+        </div>
 
         <div className="space-y-2">
-          <div>
-            <h3 className="font-medium text-sm">Groups</h3>
-            <p className="text-muted-foreground text-xs">
-              Give access to multiple members at once.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 rounded-lg border p-3">
-            <div className="flex size-9 items-center justify-center rounded-full border">
-              <Building2 className="size-4 text-muted-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-sm">Workspace members</p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="font-medium text-sm">Team</h3>
               <p className="text-muted-foreground text-xs">
-                {orgMembers.length}{" "}
-                {orgMembers.length === 1 ? "member" : "members"}
+                Who's working on this project. Everyone in the workspace can
+                still see it — this decides who follows it.
               </p>
             </div>
-            <Badge variant="secondary">Always on</Badge>
+            {viewerIsOnProject ? null : (
+              <Button
+                className="shrink-0"
+                disabled={isBusy}
+                onClick={() =>
+                  addTeamMutation.mutate({ projectId, userId: viewerUserId })
+                }
+                size="sm"
+                variant="outline"
+              >
+                Add me to this project
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            {teamMembers.map((teamMember) => {
+              const isSelf = teamMember.userId === viewerUserId
+              const canRemove = isSelf || canManageOthers
+
+              return (
+                <div
+                  className="flex items-center gap-3 py-1.5"
+                  key={teamMember.id}
+                >
+                  <Avatar className="size-8">
+                    <AvatarImage
+                      alt={teamMember.name}
+                      src={teamMember.image ?? undefined}
+                    />
+                    <AvatarFallback className="text-xs">
+                      {initials(teamMember.name || teamMember.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-sm">
+                      {teamMember.name}
+                      {isSelf ? (
+                        <span className="pl-1.5 font-normal text-muted-foreground text-xs">
+                          You
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="truncate text-muted-foreground text-xs">
+                      {teamMember.email}
+                    </p>
+                  </div>
+                  {canRemove ? (
+                    <Button
+                      aria-label={`Remove ${teamMember.name} from this project`}
+                      disabled={isBusy}
+                      onClick={() => {
+                        if (isSelf) {
+                          setPendingSelfRemoval(true)
+                          return
+                        }
+                        removeTeamMutation.mutate({
+                          projectId,
+                          userId: teamMember.userId,
+                        })
+                      }}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  ) : null}
+                </div>
+              )
+            })}
+
+            {teamMembers.length === 0 ? (
+              <p className="py-2 text-muted-foreground text-xs">
+                Nobody's on this project yet.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -189,10 +375,10 @@ export function ProjectAccessDialog({
 
         <div className="space-y-2">
           <div>
-            <h3 className="font-medium text-sm">People</h3>
+            <h3 className="font-medium text-sm">Guests</h3>
             <p className="text-muted-foreground text-xs">
-              Everyone who can see this project's issues. Workspace members
-              always have access.
+              Clients following this project. They read its issues and can
+              change status and priority — nothing else.
             </p>
           </div>
 
@@ -209,26 +395,6 @@ export function ProjectAccessDialog({
           ) : null}
 
           <div className="max-h-72 space-y-1 overflow-y-auto">
-            {orgMembers.map((member) => (
-              <div className="flex items-center gap-3 py-1.5" key={member.id}>
-                <Avatar className="size-8">
-                  <AvatarImage
-                    alt={member.name}
-                    src={member.image ?? undefined}
-                  />
-                  <AvatarFallback className="text-xs">
-                    {initials(member.name || member.email)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-sm">{member.name}</p>
-                  <p className="truncate text-muted-foreground text-xs">
-                    {member.email}
-                  </p>
-                </div>
-              </div>
-            ))}
-
             {guests.map((guest) => (
               <div
                 className="flex items-center gap-3 py-1.5"
@@ -301,6 +467,21 @@ export function ProjectAccessDialog({
           </div>
         </div>
       </DialogContent>
+
+      <ConfirmationDialog
+        confirmText="Yes, remove me"
+        description="You'll stop following this project and it will leave your My Projects list. You can still open it from All Projects, and you can add yourself back at any time."
+        isLoading={removeTeamMutation.isPending}
+        onConfirm={async () => {
+          await removeTeamMutation.mutateAsync({
+            projectId,
+            userId: viewerUserId,
+          })
+        }}
+        onOpenChange={setPendingSelfRemoval}
+        open={pendingSelfRemoval}
+        title="Are you sure you want to be removed?"
+      />
     </Dialog>
   )
 }

@@ -10,6 +10,12 @@ import {
   resendProjectGuestInvite,
 } from "@crikket/bug-reports/procedures/project-access"
 import {
+  addProjectTeamMember,
+  listOrgTeammates,
+  listProjectTeams,
+  removeProjectTeamMember,
+} from "@crikket/bug-reports/procedures/project-team"
+import {
   listCrikketProjects,
   searchProjects,
 } from "@crikket/bug-reports/procedures/projects"
@@ -32,6 +38,14 @@ export const projectRouter = {
     // Organization-wide view, for Settings -> Guest Management.
     listOrgGuests,
     removeOrgGuest,
+  },
+  // Which org members are working on a project. A filtering/notification
+  // concept, never a permission boundary — see schema/project-team.ts.
+  team: {
+    listForProjects: listProjectTeams,
+    listTeammates: listOrgTeammates,
+    add: addProjectTeamMember,
+    remove: removeProjectTeamMember,
   },
   // The guest portal's own views.
   listForGuest: listGuestProjects,

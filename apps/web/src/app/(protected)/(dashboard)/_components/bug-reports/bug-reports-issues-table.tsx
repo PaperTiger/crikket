@@ -8,6 +8,13 @@ import {
 import { Badge } from "@crikket/ui/components/ui/badge"
 import { Button } from "@crikket/ui/components/ui/button"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@crikket/ui/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -15,13 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@crikket/ui/components/ui/table"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@crikket/ui/components/ui/select"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { Loader2 } from "lucide-react"
 import type { Route } from "next"
@@ -200,6 +200,7 @@ export function BugReportsIssuesTable({
         onSortChange={filtersState.setSort}
         onTogglePriority={filtersState.togglePriority}
         onToggleStatus={filtersState.toggleStatus}
+        onToggleTeamMember={filtersState.toggleTeamMember}
         onToggleVisibility={filtersState.toggleVisibility}
         search={filtersState.searchValue}
         sort={filtersState.sort}
@@ -345,30 +346,30 @@ export function BugReportsIssuesTable({
                       )}
                     </TableCell>
                     {guestMode ? null : (
-                    <TableCell>
-                      {report.assigneeId ? (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="size-6">
-                            {assignee?.avatarUrl ? (
-                              <AvatarImage
-                                alt={assignee.name}
-                                src={assignee.avatarUrl}
-                              />
-                            ) : null}
-                            <AvatarFallback>
-                              {assignee ? initials(assignee.name) : "?"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="truncate text-sm">
-                            {assignee?.name ?? "Unknown"}
+                      <TableCell>
+                        {report.assigneeId ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="size-6">
+                              {assignee?.avatarUrl ? (
+                                <AvatarImage
+                                  alt={assignee.name}
+                                  src={assignee.avatarUrl}
+                                />
+                              ) : null}
+                              <AvatarFallback>
+                                {assignee ? initials(assignee.name) : "?"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate text-sm">
+                              {assignee?.name ?? "Unknown"}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            Unassigned
                           </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">
-                          Unassigned
-                        </span>
-                      )}
-                    </TableCell>
+                        )}
+                      </TableCell>
                     )}
                     <TableCell
                       className="text-sm"

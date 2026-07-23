@@ -2,12 +2,17 @@ import { auth } from "@crikket/auth"
 import { db } from "@crikket/db"
 import { invitation, member, user } from "@crikket/db/schema/auth"
 import { projectGuestGrant } from "@crikket/db/schema/guest-access"
+import { projectTeamMember } from "@crikket/db/schema/project-team"
 import { ORPCError } from "@orpc/server"
 import { and, asc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import { protectedProcedure } from "./context"
-import { requireActiveOrgAdmin, requireProjectViewer } from "./helpers"
+import {
+  requireActiveOrgAdmin,
+  requireOrgMember,
+  requireProjectViewer,
+} from "./helpers"
 
 const GUEST_ROLE = "guest"
 
@@ -49,8 +54,15 @@ export interface ProjectGuest {
 }
 
 export interface ProjectAccess {
-  orgMembers: ProjectOrgMember[]
+  /** Organization members working on this project. */
+  teamMembers: ProjectOrgMember[]
+  /** Organization members not on it yet, for the add picker. */
+  availableMembers: ProjectOrgMember[]
   guests: ProjectGuest[]
+  viewerUserId: string
+  viewerIsOnProject: boolean
+  /** Owners and admins may change other people's project teams. */
+  viewerCanManageOthers: boolean
 }
 
 function newId(): string {
@@ -100,19 +112,24 @@ async function findGrantForAdmin(input: {
 }
 
 /**
- * Everyone with access to a project: organization members (who always see
- * everything) followed by the guests explicitly granted this project.
+ * Everyone attached to a project: the team (organization members working on it)
+ * and the guests granted access to it.
+ *
+ * Guarded by `requireOrgMember`, not admin — every member needs to open this to
+ * add themselves to a project. The admin-only rule lives on the individual
+ * mutations instead.
  */
 export const listProjectAccess = protectedProcedure
   .input(projectIdInputSchema)
   .handler(async ({ context, input }): Promise<ProjectAccess> => {
-    const organizationId = await requireActiveOrgAdmin(context.session)
+    const organizationId = await requireOrgMember(context.session)
+    const viewerUserId = context.session.user.id
     await assertProjectBelongsToOrg({
       organizationId,
       projectId: input.projectId,
     })
 
-    const [members, grants] = await Promise.all([
+    const [members, grants, teamRows, viewerMembership] = await Promise.all([
       db
         .select({
           id: member.id,
@@ -144,19 +161,48 @@ export const listProjectAccess = protectedProcedure
           )
         )
         .orderBy(asc(projectGuestGrant.createdAt)),
+      db
+        .select({ userId: projectTeamMember.userId })
+        .from(projectTeamMember)
+        .where(
+          and(
+            eq(projectTeamMember.organizationId, organizationId),
+            eq(projectTeamMember.projectId, input.projectId)
+          )
+        )
+        .orderBy(asc(projectTeamMember.createdAt)),
+      db.query.member.findFirst({
+        where: and(
+          eq(member.organizationId, organizationId),
+          eq(member.userId, viewerUserId)
+        ),
+        columns: { role: true },
+      }),
     ])
 
+    const teamUserIds = new Set(teamRows.map((row) => row.userId))
+    const teammates = members.filter((row) => row.role !== GUEST_ROLE)
+    const toMember = (row: (typeof teammates)[number]): ProjectOrgMember => ({
+      id: row.id,
+      userId: row.userId,
+      name: row.name,
+      email: row.email,
+      image: row.image,
+      role: row.role,
+    })
+
     return {
-      orgMembers: members
-        .filter((row) => row.role !== GUEST_ROLE)
-        .map((row) => ({
-          id: row.id,
-          userId: row.userId,
-          name: row.name,
-          email: row.email,
-          image: row.image,
-          role: row.role,
-        })),
+      teamMembers: teammates
+        .filter((row) => teamUserIds.has(row.userId))
+        .map(toMember),
+      availableMembers: teammates
+        .filter((row) => !teamUserIds.has(row.userId))
+        .map(toMember),
+      viewerUserId,
+      viewerIsOnProject: teamUserIds.has(viewerUserId),
+      viewerCanManageOthers:
+        viewerMembership?.role === "owner" ||
+        viewerMembership?.role === "admin",
       guests: grants.map((row) => ({
         grantId: row.grantId,
         email: row.email,
