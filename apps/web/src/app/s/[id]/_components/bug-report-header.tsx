@@ -4,10 +4,12 @@ import {
 } from "@crikket/shared/constants/bug-report"
 import { Button } from "@crikket/ui/components/ui/button"
 import { Separator } from "@crikket/ui/components/ui/separator"
+import { cn } from "@crikket/ui/lib/utils"
 import { Home } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { PaperTigerWordmark } from "@/components/paper-tiger-wordmark"
+import { statusColorStyle } from "@/lib/bug-report-status-color"
 import type { SharedBugReport } from "./types"
 
 interface BugReportHeaderProps {
@@ -58,7 +60,17 @@ export function BugReportHeader({
           >
             {data.title ?? "Untitled Bug Report"}
           </h1>
-          <span className="hidden shrink-0 items-center rounded-full border bg-secondary px-2 py-0.5 font-semibold text-secondary-foreground text-xs sm:inline-flex">
+          <span
+            className={cn(
+              "hidden shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 font-semibold text-xs sm:inline-flex",
+              // Neutral fallback (Closed) keeps the secondary badge styling.
+              statusColorStyle(data.status)
+                ? ""
+                : "border-transparent bg-secondary text-secondary-foreground"
+            )}
+            style={statusColorStyle(data.status)}
+          >
+            <span aria-hidden className="size-1.5 rounded-full bg-current" />
             {formatStatusLabel(data.status)}
           </span>
         </div>
