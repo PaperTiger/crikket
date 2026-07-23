@@ -135,9 +135,9 @@ function ProjectsNavGroup({ pathname }: { pathname: string }) {
                   >
                     <FolderKanban />
                     <span className="truncate">{project.name}</span>
-                    {project.keyCount > 0 ? (
+                    {project.openCount > 0 ? (
                       <span className="ml-auto text-muted-foreground text-xs tabular-nums">
-                        {project.keyCount}
+                        {project.openCount}
                       </span>
                     ) : null}
                   </SidebarMenuButton>
