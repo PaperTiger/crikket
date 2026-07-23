@@ -142,6 +142,167 @@ function initials(name: string): string {
     .toUpperCase()
 }
 
+/** A triage dropdown that doesn't trigger the row's navigation. */
+function TriageSelect<TValue extends string>({
+  value,
+  options,
+  label,
+  width,
+  disabled,
+  onChange,
+}: {
+  value: TValue
+  options: ReadonlyArray<{ value: TValue; label: string }>
+  label: string
+  width: string
+  disabled: boolean
+  onChange: (value: TValue) => void
+}) {
+  return (
+    <Select
+      disabled={disabled}
+      onValueChange={(next) => onChange(next as TValue)}
+      value={value}
+    >
+      <SelectTrigger className={`h-8 ${width}`} size="sm">
+        <SelectValue>{label}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function AssigneeCell({
+  assigneeId,
+  assignee,
+}: {
+  assigneeId: string | null
+  assignee: { name: string; avatarUrl: string | null } | undefined
+}) {
+  if (!assigneeId) {
+    return <span className="text-muted-foreground text-sm">Unassigned</span>
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Avatar className="size-6">
+        {assignee?.avatarUrl ? (
+          <AvatarImage alt={assignee.name} src={assignee.avatarUrl} />
+        ) : null}
+        <AvatarFallback>
+          {assignee ? initials(assignee.name) : "?"}
+        </AvatarFallback>
+      </Avatar>
+      <span className="truncate text-sm">{assignee?.name ?? "Unknown"}</span>
+    </div>
+  )
+}
+
+function IssueRow({
+  report,
+  assignee,
+  guestMode,
+  isTriaging,
+  onTriage,
+  onOpen,
+}: {
+  report: BugReportListItem
+  assignee: { name: string; avatarUrl: string | null } | undefined
+  guestMode: boolean
+  isTriaging: boolean
+  onTriage: (input: { id: string } & Partial<BugReportListItem>) => void
+  onOpen: () => void
+}) {
+  const host = hostFromUrl(report.url)
+  // Guests edit inline, so their cells must swallow the row's navigation click.
+  const stopRowNavigation = (event: React.MouseEvent) => {
+    if (guestMode) {
+      event.stopPropagation()
+    }
+  }
+
+  return (
+    <TableRow
+      className="cursor-pointer"
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onOpen()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      <TableCell className="max-w-[420px]">
+        <div className="truncate font-medium" title={report.title}>
+          {report.title || "Untitled issue"}
+        </div>
+        {host ? (
+          <div
+            className="truncate text-muted-foreground text-xs"
+            title={report.url}
+          >
+            {host}
+          </div>
+        ) : null}
+      </TableCell>
+
+      <TableCell onClick={stopRowNavigation}>
+        {guestMode ? (
+          <TriageSelect
+            disabled={isTriaging}
+            label={formatStatusLabel(report.status)}
+            onChange={(status) => onTriage({ id: report.id, status })}
+            options={STATUS_OPTIONS}
+            value={report.status}
+            width="w-[150px]"
+          />
+        ) : (
+          <Badge className="gap-1.5" variant="outline">
+            <span
+              aria-hidden
+              className="size-1.5 rounded-full bg-muted-foreground"
+            />
+            {formatStatusLabel(report.status)}
+          </Badge>
+        )}
+      </TableCell>
+
+      {guestMode ? null : (
+        <TableCell>
+          <AssigneeCell assignee={assignee} assigneeId={report.assigneeId} />
+        </TableCell>
+      )}
+
+      <TableCell className="text-sm" onClick={stopRowNavigation}>
+        {guestMode ? (
+          <TriageSelect
+            disabled={isTriaging}
+            label={formatPriorityLabel(report.priority)}
+            onChange={(priority) => onTriage({ id: report.id, priority })}
+            options={PRIORITY_FILTER_OPTIONS}
+            value={report.priority}
+            width="w-[130px]"
+          />
+        ) : (
+          formatPriorityLabel(report.priority)
+        )}
+      </TableCell>
+
+      <TableCell className="whitespace-nowrap text-right text-muted-foreground text-sm">
+        {formatRelative(report.updatedAt)}
+      </TableCell>
+    </TableRow>
+  )
+}
+
 export function BugReportsIssuesTable({
   filtersState,
   viewToggle,
@@ -264,158 +425,21 @@ export function BugReportsIssuesTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orderedReports.map((report) => {
-                const assignee = report.assigneeId
-                  ? peopleById.get(report.assigneeId)
-                  : undefined
-                const host = hostFromUrl(report.url)
-
-                return (
-                  <TableRow
-                    className="cursor-pointer"
-                    key={report.id}
-                    onClick={() => router.push(`/s/${report.id}` as Route)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault()
-                        router.push(`/s/${report.id}` as Route)
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <TableCell className="max-w-[420px]">
-                      <div
-                        className="truncate font-medium"
-                        title={report.title}
-                      >
-                        {report.title || "Untitled issue"}
-                      </div>
-                      {host ? (
-                        <div
-                          className="truncate text-muted-foreground text-xs"
-                          title={report.url}
-                        >
-                          {host}
-                        </div>
-                      ) : null}
-                    </TableCell>
-                    <TableCell
-                      onClick={(event) => {
-                        // The row navigates; the control inside it must not.
-                        if (guestMode) {
-                          event.stopPropagation()
-                        }
-                      }}
-                    >
-                      {guestMode ? (
-                        <Select
-                          disabled={triage.pendingId === report.id}
-                          onValueChange={(value) =>
-                            triage.update({
-                              id: report.id,
-                              status: value as BugReportListItem["status"],
-                            })
-                          }
-                          value={report.status}
-                        >
-                          <SelectTrigger className="h-8 w-[150px]" size="sm">
-                            <SelectValue>
-                              {formatStatusLabel(report.status)}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STATUS_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge className="gap-1.5" variant="outline">
-                          <span
-                            aria-hidden
-                            className="size-1.5 rounded-full bg-muted-foreground"
-                          />
-                          {formatStatusLabel(report.status)}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    {guestMode ? null : (
-                      <TableCell>
-                        {report.assigneeId ? (
-                          <div className="flex items-center gap-2">
-                            <Avatar className="size-6">
-                              {assignee?.avatarUrl ? (
-                                <AvatarImage
-                                  alt={assignee.name}
-                                  src={assignee.avatarUrl}
-                                />
-                              ) : null}
-                              <AvatarFallback>
-                                {assignee ? initials(assignee.name) : "?"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="truncate text-sm">
-                              {assignee?.name ?? "Unknown"}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">
-                            Unassigned
-                          </span>
-                        )}
-                      </TableCell>
-                    )}
-                    <TableCell
-                      className="text-sm"
-                      onClick={(event) => {
-                        if (guestMode) {
-                          event.stopPropagation()
-                        }
-                      }}
-                    >
-                      {guestMode ? (
-                        <Select
-                          disabled={triage.pendingId === report.id}
-                          onValueChange={(value) =>
-                            triage.update({
-                              id: report.id,
-                              priority: value as BugReportListItem["priority"],
-                            })
-                          }
-                          value={report.priority}
-                        >
-                          <SelectTrigger className="h-8 w-[130px]" size="sm">
-                            <SelectValue>
-                              {formatPriorityLabel(report.priority)}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PRIORITY_FILTER_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        formatPriorityLabel(report.priority)
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right text-muted-foreground text-sm">
-                      {formatRelative(report.updatedAt)}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+              {orderedReports.map((report) => (
+                <IssueRow
+                  assignee={
+                    report.assigneeId
+                      ? peopleById.get(report.assigneeId)
+                      : undefined
+                  }
+                  guestMode={guestMode}
+                  isTriaging={triage.pendingId === report.id}
+                  key={report.id}
+                  onOpen={() => router.push(`/s/${report.id}` as Route)}
+                  onTriage={triage.update}
+                  report={report}
+                />
+              ))}
             </TableBody>
           </Table>
         </div>
