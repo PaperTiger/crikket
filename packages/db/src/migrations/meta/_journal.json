@@ -43,6 +43,13 @@
       "when": 1784772925625,
       "tag": "0005_handy_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784839500141,
+      "tag": "0006_supreme_cable",
+      "breakpoints": true
     }
   ]
 }

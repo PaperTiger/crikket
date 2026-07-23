@@ -1,4 +1,10 @@
 import {
+  createBugReportComment,
+  deleteBugReportComment,
+  listBugReportComments,
+  updateBugReportComment,
+} from "@crikket/bug-reports/procedures/comments"
+import {
   deleteBugReport,
   deleteBugReportsBulk,
 } from "@crikket/bug-reports/procedures/delete-bug-reports"
@@ -44,4 +50,8 @@ export const bugReportRouter = {
   update: updateBugReport,
   updateBulk: updateBugReportsBulk,
   updateVisibility: updateBugReportVisibility,
+  listComments: listBugReportComments,
+  createComment: createBugReportComment,
+  updateComment: updateBugReportComment,
+  deleteComment: deleteBugReportComment,
 }
