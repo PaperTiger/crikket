@@ -12,7 +12,7 @@ import {
   ResizablePanelGroup,
 } from "@crikket/ui/components/ui/resizable"
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query"
-import { AlertCircle, Edit, Eye, EyeOff, Loader2 } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -24,6 +24,7 @@ import { BugReportBreadcrumbs } from "./bug-report-breadcrumbs"
 import { BugReportCanvas } from "./bug-report-canvas"
 import { BugReportHeader } from "./bug-report-header"
 import { BugReportSidebar, type SidebarTab } from "./bug-report-sidebar"
+import { TicketMainColumn } from "./ticket-main-column"
 import type { DebuggerTimelineEntry, SharedBugReport } from "./types"
 import {
   applyVideoOffsetFallback,
@@ -260,24 +261,8 @@ function renderBugReportLoadedView(input: {
 }) {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <BugReportHeader
-        data={input.data}
-        editAction={
-          input.data.canTriage ? (
-            <Button
-              onClick={() => input.onToggleEditSheet(true)}
-              size="sm"
-              variant="ghost"
-            >
-              <Edit />
-              <span className="sr-only">
-                {input.data.canEdit ? "Edit" : "Update status and priority"}
-              </span>
-            </Button>
-          ) : null
-        }
-      />
-      {input.data.canTriage ? (
+      <BugReportHeader data={input.data} />
+      {input.data.canEdit ? (
         <EditBugReportSheet
           onOpenChange={input.onToggleEditSheet}
           onUpdated={async () => {
@@ -291,9 +276,8 @@ function renderBugReportLoadedView(input: {
             status: input.data.status,
             priority: input.data.priority,
             visibility: input.data.visibility,
+            assigneeId: input.data.assigneeId,
           }}
-          // Guests get status and priority; the rest stays with the org.
-          triageOnly={!input.data.canEdit}
         />
       ) : null}
 
@@ -314,16 +298,17 @@ function renderBugReportLoadedView(input: {
             orientation="horizontal"
           >
             <ResizablePanel minSize={CANVAS_MIN_WIDTH}>
-              <div className="flex h-full flex-col">
-                <BugReportBreadcrumbs data={input.data} />
-                <div className="flex min-h-0 flex-1">
-                  <BugReportCanvas
-                    data={input.data}
-                    onTimeUpdate={input.onTimeUpdate}
-                    ref={input.desktopVideoRef}
-                  />
-                </div>
-              </div>
+              <TicketMainColumn
+                canvasRef={input.desktopVideoRef}
+                data={input.data}
+                onEditDetails={
+                  input.data.canEdit
+                    ? () => input.onToggleEditSheet(true)
+                    : undefined
+                }
+                onTimeUpdate={input.onTimeUpdate}
+                onUpdated={input.refetch}
+              />
             </ResizablePanel>
             <ResizableHandle withHandle />
 
@@ -585,6 +570,7 @@ export function BugReportView({ id }: BugReportViewProps) {
     data,
     activeTab,
     onTabChange: handleTabChange,
+    onUpdated: refetch,
     timeline: {
       actions: {
         actions: debuggerEvents.actions,

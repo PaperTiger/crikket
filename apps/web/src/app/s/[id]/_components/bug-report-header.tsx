@@ -1,45 +1,18 @@
-import {
-  BUG_REPORT_STATUS_OPTIONS,
-  type BugReportStatus,
-} from "@crikket/shared/constants/bug-report"
 import { Button } from "@crikket/ui/components/ui/button"
 import { Separator } from "@crikket/ui/components/ui/separator"
-import { cn } from "@crikket/ui/lib/utils"
 import { Home } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { PaperTigerWordmark } from "@/components/paper-tiger-wordmark"
-import { statusColorStyle } from "@/lib/bug-report-status-color"
 import type { SharedBugReport } from "./types"
 
 interface BugReportHeaderProps {
   data: SharedBugReport
-  editAction?: ReactNode
-}
-
-function formatStatusLabel(status: BugReportStatus): string {
-  switch (status) {
-    case BUG_REPORT_STATUS_OPTIONS.toDo:
-      return "To do"
-    case BUG_REPORT_STATUS_OPTIONS.inProgress:
-      return "In progress"
-    case BUG_REPORT_STATUS_OPTIONS.clientReview:
-      return "Client review"
-    case BUG_REPORT_STATUS_OPTIONS.blocked:
-      return "Blocked"
-    case BUG_REPORT_STATUS_OPTIONS.done:
-      return "Done"
-    case BUG_REPORT_STATUS_OPTIONS.closed:
-      return "Closed"
-    default:
-      return "To do"
-  }
 }
 
 export function BugReportHeader({
   data,
   sidebarTrigger,
-  editAction,
 }: BugReportHeaderProps & { sidebarTrigger?: ReactNode }) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background px-4">
@@ -53,27 +26,12 @@ export function BugReportHeader({
           <PaperTigerWordmark className="h-4 w-auto" />
         </Link>
         <Separator className="h-5 shrink-0" orientation="vertical" />
-        <div className="flex min-w-0 items-center gap-2">
-          <h1
-            className="truncate font-medium text-sm"
-            title={data.title ?? "Untitled"}
-          >
-            {data.title ?? "Untitled Bug Report"}
-          </h1>
-          <span
-            className={cn(
-              "hidden shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 font-semibold text-xs sm:inline-flex",
-              // Neutral fallback (Closed) keeps the secondary badge styling.
-              statusColorStyle(data.status)
-                ? ""
-                : "border-transparent bg-secondary text-secondary-foreground"
-            )}
-            style={statusColorStyle(data.status)}
-          >
-            <span aria-hidden className="size-1.5 rounded-full bg-current" />
-            {formatStatusLabel(data.status)}
-          </span>
-        </div>
+        <h1
+          className="truncate font-medium text-sm"
+          title={data.title ?? "Untitled"}
+        >
+          {data.title ?? "Untitled Bug Report"}
+        </h1>
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
@@ -81,7 +39,6 @@ export function BugReportHeader({
           {new Date(data.createdAt).toLocaleString()}
         </span>
         <Separator className="hidden sm:block" orientation="vertical" />
-        {editAction}
         <Button
           nativeButton={false}
           render={

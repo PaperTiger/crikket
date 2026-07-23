@@ -3,9 +3,11 @@ import { db } from "@crikket/db"
 import { member } from "@crikket/db/schema/auth"
 import { bugReport } from "@crikket/db/schema/bug-report"
 import {
+  BUG_REPORT_CATEGORY_OPTIONS,
   BUG_REPORT_STATUS_OPTIONS,
   BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
   BUG_REPORT_VISIBILITY_OPTIONS,
+  type BugReportCategory,
   type BugReportStatus,
   type BugReportSubmissionStatus,
   type BugReportVisibility,
@@ -23,6 +25,10 @@ export const visibilityValues = Object.values(
 export const statusValues = Object.values(BUG_REPORT_STATUS_OPTIONS) as [
   BugReportStatus,
   ...BugReportStatus[],
+]
+export const categoryValues = Object.values(BUG_REPORT_CATEGORY_OPTIONS) as [
+  BugReportCategory,
+  ...BugReportCategory[],
 ]
 const DEFAULT_DEBUGGER_NETWORK_REQUEST_PAGE_SIZE = 10
 const MAX_DEBUGGER_NETWORK_REQUEST_PAGE_SIZE = 200
@@ -100,6 +106,15 @@ export function isStatus(
   return (
     typeof value === "string" &&
     (statusValues as readonly string[]).includes(value)
+  )
+}
+
+export function isCategory(
+  value: unknown
+): value is (typeof categoryValues)[number] {
+  return (
+    typeof value === "string" &&
+    (categoryValues as readonly string[]).includes(value)
   )
 }
 

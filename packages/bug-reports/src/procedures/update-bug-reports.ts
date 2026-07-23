@@ -10,6 +10,8 @@ import { z } from "zod"
 import { findForbiddenGuestFields } from "../lib/guest-write-policy"
 import { buildProjectScopeFilter } from "../lib/project-scope"
 import {
+  categoryValues,
+  isCategory,
   isStatus,
   isVisibility,
   optionalText,
@@ -40,6 +42,7 @@ const bugReportUpdateInputSchema = z
     title: optionalText(200),
     status: z.enum(statusValues).optional(),
     priority: z.enum(priorityValues).optional(),
+    category: z.enum(categoryValues).optional(),
     visibility: z.enum(visibilityValues).optional(),
     tags: tagsInputSchema.optional(),
     assigneeId: assigneeIdInputSchema.optional(),
@@ -49,6 +52,7 @@ const bugReportUpdateInputSchema = z
       value.title === undefined &&
       value.status === undefined &&
       value.priority === undefined &&
+      value.category === undefined &&
       value.visibility === undefined &&
       value.tags === undefined &&
       value.assigneeId === undefined
@@ -107,6 +111,7 @@ function buildUpdateValues(input: {
   title?: string
   status?: (typeof statusValues)[number]
   priority?: Priority
+  category?: (typeof categoryValues)[number]
   visibility?: (typeof visibilityValues)[number]
   tags?: string[]
   assigneeId?: string | null
@@ -115,6 +120,7 @@ function buildUpdateValues(input: {
     title?: string
     status?: string
     priority?: string
+    category?: string
     visibility?: string
     tags?: string[]
     assigneeId?: string | null
@@ -130,6 +136,10 @@ function buildUpdateValues(input: {
 
   if (input.priority !== undefined) {
     values.priority = input.priority
+  }
+
+  if (input.category !== undefined) {
+    values.category = input.category
   }
 
   if (input.visibility !== undefined) {
@@ -169,6 +179,7 @@ export const updateBugReport = protectedProcedure
         title: bugReport.title,
         status: bugReport.status,
         priority: bugReport.priority,
+        category: bugReport.category,
         visibility: bugReport.visibility,
         tags: bugReport.tags,
       })
@@ -185,6 +196,7 @@ export const updateBugReport = protectedProcedure
       priority: priorityValues.includes(report.priority as Priority)
         ? (report.priority as Priority)
         : PRIORITY_OPTIONS.none,
+      category: isCategory(report.category) ? report.category : null,
       visibility: isVisibility(report.visibility)
         ? report.visibility
         : visibilityValues[1],
