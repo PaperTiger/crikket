@@ -3,12 +3,12 @@ import {
   deleteBugReportsBulk,
 } from "@crikket/bug-reports/procedures/delete-bug-reports"
 import { getBugReportById } from "@crikket/bug-reports/procedures/get-bug-report"
-import { getBugReportGroupedStats } from "@crikket/bug-reports/procedures/grouped-stats"
 import {
   getBugReportDebuggerEvents,
   getBugReportNetworkRequestPayload,
   getBugReportNetworkRequests,
 } from "@crikket/bug-reports/procedures/get-bug-report-debugger"
+import { getBugReportGroupedStats } from "@crikket/bug-reports/procedures/grouped-stats"
 import {
   getBugReportDashboardStats,
   listBugReports,

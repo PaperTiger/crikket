@@ -20,6 +20,7 @@ import { toast } from "sonner"
 import { EditBugReportSheet } from "@/components/bug-reports/edit-bug-report-sheet"
 import { client, orpc } from "@/utils/orpc"
 
+import { BugReportBreadcrumbs } from "./bug-report-breadcrumbs"
 import { BugReportCanvas } from "./bug-report-canvas"
 import { BugReportHeader } from "./bug-report-header"
 import { BugReportSidebar, type SidebarTab } from "./bug-report-sidebar"
@@ -309,12 +310,15 @@ function renderBugReportLoadedView(input: {
             orientation="horizontal"
           >
             <ResizablePanel minSize={CANVAS_MIN_WIDTH}>
-              <div className="flex h-full">
-                <BugReportCanvas
-                  data={input.data}
-                  onTimeUpdate={input.onTimeUpdate}
-                  ref={input.desktopVideoRef}
-                />
+              <div className="flex h-full flex-col">
+                <BugReportBreadcrumbs data={input.data} />
+                <div className="flex min-h-0 flex-1">
+                  <BugReportCanvas
+                    data={input.data}
+                    onTimeUpdate={input.onTimeUpdate}
+                    ref={input.desktopVideoRef}
+                  />
+                </div>
               </div>
             </ResizablePanel>
             <ResizableHandle withHandle />
@@ -330,6 +334,7 @@ function renderBugReportLoadedView(input: {
         </div>
 
         <div className="flex h-full w-full flex-col md:hidden">
+          <BugReportBreadcrumbs data={input.data} />
           {input.isMobileVideoHidden ? null : (
             <div className="shrink-0 border-b">
               <BugReportCanvas
