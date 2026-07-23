@@ -4,7 +4,6 @@ import { Link as LinkIcon } from "lucide-react"
 import type { Route } from "next"
 import type { RefObject } from "react"
 
-import { BugReportBreadcrumbs } from "./bug-report-breadcrumbs"
 import { BugReportCanvas } from "./bug-report-canvas"
 import {
   StatusControl,
@@ -12,11 +11,12 @@ import {
   useTicketUpdate,
 } from "./ticket-controls"
 import type { SharedBugReport } from "./types"
+import { stripReporterLine } from "./utils"
 
 /**
- * The wireframe's main column: the attachment, then the status + actions row,
- * the title, the captured link, and the description — a scrollable document
- * rather than the old full-height canvas.
+ * The wireframe's main column: the attachment (capped in height, click to open
+ * larger), then a title row carrying the status pill and actions, the captured
+ * link, and the description — a scrollable document.
  */
 export function TicketMainColumn({
   data,
@@ -24,8 +24,7 @@ export function TicketMainColumn({
   onTimeUpdate,
   onUpdated,
   onEditDetails,
-  compactCanvas = false,
-  showBreadcrumbs = true,
+  compactCanvas = true,
 }: {
   data: SharedBugReport
   canvasRef: RefObject<HTMLVideoElement | null>
@@ -33,29 +32,33 @@ export function TicketMainColumn({
   onUpdated: () => Promise<unknown>
   onEditDetails?: () => void
   compactCanvas?: boolean
-  showBreadcrumbs?: boolean
 }) {
   const ticket = useTicketUpdate(data.id, onUpdated)
+  const description = stripReporterLine(data.description)
 
   return (
-    <div className="flex h-full flex-col">
-      {showBreadcrumbs ? <BugReportBreadcrumbs data={data} /> : null}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl space-y-4 p-4 md:p-6">
-          <div className="overflow-hidden rounded-lg border bg-muted/20">
-            <BugReportCanvas
-              compact={compactCanvas}
-              data={data}
-              onTimeUpdate={onTimeUpdate}
-              ref={canvasRef}
-            />
-          </div>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto w-full max-w-4xl space-y-4 p-4 md:p-6">
+        {/* Attachment capped at 350px tall; zoom/fullscreen to see more. */}
+        <div className="flex max-h-[350px] justify-center overflow-hidden rounded-lg border bg-muted/20 [&_img]:max-h-[350px] [&_img]:w-auto [&_video]:max-h-[350px] [&_video]:w-auto">
+          <BugReportCanvas
+            compact={compactCanvas}
+            data={data}
+            onTimeUpdate={onTimeUpdate}
+            ref={canvasRef}
+          />
+        </div>
 
-          <div className="flex items-center justify-end gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="min-w-0 flex-1 font-semibold text-2xl leading-tight tracking-tight">
+            {data.title || "Untitled ticket"}
+          </h1>
+          <div className="flex shrink-0 items-center gap-2">
             <StatusControl
               disabled={ticket.pendingField === "status"}
               editable={data.canTriage}
               onChange={(status) => ticket.update("status", { status })}
+              size="lg"
               status={data.status}
             />
             <TicketActionsMenu
@@ -65,29 +68,25 @@ export function TicketMainColumn({
               redirectTo={"/" as Route}
             />
           </div>
+        </div>
 
-          <h1 className="font-semibold text-2xl leading-tight tracking-tight">
-            {data.title || "Untitled ticket"}
-          </h1>
+        {data.url ? (
+          <a
+            className="inline-flex max-w-full items-center gap-1.5 break-all text-primary text-sm hover:underline"
+            href={data.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <LinkIcon aria-hidden className="size-3.5 shrink-0" />
+            {data.url}
+          </a>
+        ) : null}
 
-          {data.url ? (
-            <a
-              className="inline-flex max-w-full items-center gap-1.5 break-all text-primary text-sm hover:underline"
-              href={data.url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <LinkIcon aria-hidden className="size-3.5 shrink-0" />
-              {data.url}
-            </a>
-          ) : null}
-
-          <div className="space-y-2 pt-2">
-            <h2 className="font-semibold text-lg">Description</h2>
-            <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed">
-              {data.description || "No description provided."}
-            </p>
-          </div>
+        <div className="space-y-2 pt-2">
+          <h2 className="font-semibold text-lg">Description</h2>
+          <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed">
+            {description || "No description provided."}
+          </p>
         </div>
       </div>
     </div>

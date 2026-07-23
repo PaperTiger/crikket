@@ -10,6 +10,44 @@ interface BugReportHeaderProps {
   data: SharedBugReport
 }
 
+/**
+ * Links to the report's project — the org dashboard for staff, the portal for
+ * guests. Two branches rather than a ternary href: typed routes reject a union
+ * of route literals.
+ */
+function ProjectNameLink({
+  project,
+  isGuest,
+}: {
+  project: { id: string; name: string }
+  isGuest: boolean
+}) {
+  const className =
+    "truncate font-medium text-sm text-foreground underline underline-offset-4 hover:opacity-70"
+
+  if (isGuest) {
+    return (
+      <Link
+        className={className}
+        href={`/portal/projects/${project.id}`}
+        title={project.name}
+      >
+        {project.name}
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      className={className}
+      href={`/projects/${project.id}`}
+      title={project.name}
+    >
+      {project.name}
+    </Link>
+  )
+}
+
 export function BugReportHeader({
   data,
   sidebarTrigger,
@@ -26,19 +64,19 @@ export function BugReportHeader({
           <PaperTigerWordmark className="h-4 w-auto" />
         </Link>
         <Separator className="h-5 shrink-0" orientation="vertical" />
-        <h1
-          className="truncate font-medium text-sm"
-          title={data.title ?? "Untitled"}
-        >
-          {data.title ?? "Untitled Bug Report"}
-        </h1>
+        {data.project ? (
+          <ProjectNameLink isGuest={data.isGuest} project={data.project} />
+        ) : (
+          <span
+            className="truncate font-medium text-sm"
+            title={data.title ?? "Untitled"}
+          >
+            {data.title ?? "Untitled Bug Report"}
+          </span>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <span className="hidden text-muted-foreground text-xs sm:inline-block">
-          {new Date(data.createdAt).toLocaleString()}
-        </span>
-        <Separator className="hidden sm:block" orientation="vertical" />
         <Button
           nativeButton={false}
           render={

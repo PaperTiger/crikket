@@ -12,7 +12,7 @@ import {
   ResizablePanelGroup,
 } from "@crikket/ui/components/ui/resizable"
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query"
-import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -20,8 +20,6 @@ import { toast } from "sonner"
 import { EditBugReportSheet } from "@/components/bug-reports/edit-bug-report-sheet"
 import { client, orpc } from "@/utils/orpc"
 
-import { BugReportBreadcrumbs } from "./bug-report-breadcrumbs"
-import { BugReportCanvas } from "./bug-report-canvas"
 import { BugReportHeader } from "./bug-report-header"
 import { BugReportSidebar, type SidebarTab } from "./bug-report-sidebar"
 import { TicketMainColumn } from "./ticket-main-column"
@@ -247,11 +245,9 @@ function BugReportInternalStatusBanner(input: {
 function renderBugReportLoadedView(input: {
   data: SharedBugReport
   isEditSheetOpen: boolean
-  isMobileVideoHidden: boolean
   isReady: boolean
   onRetryDebuggerIngestion: () => void
   onTimeUpdate: (value: number) => void
-  onToggleMobileVideoVisibility: () => void
   onToggleEditSheet: (value: boolean) => void
   refetch: () => Promise<unknown>
   retryIngestionPending: boolean
@@ -323,37 +319,21 @@ function renderBugReportLoadedView(input: {
         </div>
 
         <div className="flex h-full w-full flex-col md:hidden">
-          <BugReportBreadcrumbs data={input.data} />
-          {input.isMobileVideoHidden ? null : (
-            <div className="shrink-0 border-b">
-              <BugReportCanvas
-                compact
-                data={input.data}
-                onTimeUpdate={input.onTimeUpdate}
-                ref={input.mobileVideoRef}
-              />
-            </div>
-          )}
-          <div className="min-h-0 flex-1">
-            <BugReportSidebar
-              {...input.sidebarProps}
-              tabAction={
-                <button
-                  aria-label={
-                    input.isMobileVideoHidden ? "Show video" : "Hide video"
-                  }
-                  className="rounded-[4px] p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                  onClick={input.onToggleMobileVideoVisibility}
-                  type="button"
-                >
-                  {input.isMobileVideoHidden ? (
-                    <Eye className="h-3.5 w-3.5" />
-                  ) : (
-                    <EyeOff className="h-3.5 w-3.5" />
-                  )}
-                </button>
+          <div className="min-h-0 flex-1 border-b">
+            <TicketMainColumn
+              canvasRef={input.mobileVideoRef}
+              data={input.data}
+              onEditDetails={
+                input.data.canEdit
+                  ? () => input.onToggleEditSheet(true)
+                  : undefined
               }
+              onTimeUpdate={input.onTimeUpdate}
+              onUpdated={input.refetch}
             />
+          </div>
+          <div className="min-h-0 flex-1">
+            <BugReportSidebar {...input.sidebarProps} />
           </div>
         </div>
       </div>
@@ -431,7 +411,6 @@ export function BugReportView({ id }: BugReportViewProps) {
   const desktopVideoRef = useRef<HTMLVideoElement | null>(null)
   const mobileVideoRef = useRef<HTMLVideoElement | null>(null)
   const [playbackOffsetMs, setPlaybackOffsetMs] = useState(0)
-  const [isMobileVideoHidden, setIsMobileVideoHidden] = useState(false)
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
   const [selectedEntryIds, setSelectedEntryIds] =
     useState<SelectedEntryIds>(EMPTY_SELECTION)
@@ -601,15 +580,11 @@ export function BugReportView({ id }: BugReportViewProps) {
     data,
     desktopVideoRef,
     isEditSheetOpen,
-    isMobileVideoHidden,
     isReady: Boolean(isReady),
     mobileVideoRef,
     onRetryDebuggerIngestion: () => retryIngestionMutation.mutate(),
     onTimeUpdate: setPlaybackOffsetMs,
     onToggleEditSheet: setIsEditSheetOpen,
-    onToggleMobileVideoVisibility: () => {
-      setIsMobileVideoHidden((current) => !current)
-    },
     refetch,
     retryIngestionPending: retryIngestionMutation.isPending,
     sidebarProps,

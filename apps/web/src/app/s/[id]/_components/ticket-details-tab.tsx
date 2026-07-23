@@ -22,6 +22,7 @@ import {
   useTicketUpdate,
 } from "./ticket-controls"
 import type { DeviceInfo, SharedBugReport } from "./types"
+import { parseReporterFromDescription } from "./utils"
 
 const WHITESPACE_PATTERN = /\s+/
 
@@ -75,7 +76,11 @@ export function TicketDetailsTab({
   // Closed by default, per the wireframe.
   const [sessionOpen, setSessionOpen] = useState(false)
   const deviceInfo = data.deviceInfo as DeviceInfo | null
-  const reporterName = data.reporter?.name?.trim() || "Unknown reporter"
+  // SDK submissions carry the reporter in the description text, not a relation.
+  const parsedReporter = parseReporterFromDescription(data.description)
+  const reporterName =
+    data.reporter?.name?.trim() || parsedReporter?.name || "Unknown reporter"
+  const reporterEmail = parsedReporter?.email
 
   return (
     <div className="space-y-4 p-4">
@@ -88,7 +93,10 @@ export function TicketDetailsTab({
           <AvatarFallback>{getInitials(reporterName)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <p className="truncate font-medium text-sm">
+          <p
+            className="truncate font-medium text-sm"
+            title={reporterEmail ?? undefined}
+          >
             Reported by {reporterName}
           </p>
           <p className="truncate text-muted-foreground text-xs">

@@ -88,24 +88,33 @@ export function StatusControl({
   status,
   editable,
   disabled = false,
+  size = "sm",
   onChange,
 }: {
   status: SharedBugReport["status"]
   editable: boolean
   disabled?: boolean
+  /** "lg" is used on the ticket page so the pill is easy to see and click. */
+  size?: "sm" | "lg"
   onChange: (status: SharedBugReport["status"]) => void
 }) {
   const colorStyle = statusColorStyle(status)
+  const isLg = size === "lg"
   const pillClassName = cn(
     badgeVariants({ variant: "outline" }),
     "gap-1.5",
+    isLg && "h-8 gap-2 px-3 text-sm [&>svg]:size-4!",
     colorStyle ? "" : "text-muted-foreground"
+  )
+  const dotClassName = cn(
+    "rounded-full bg-current",
+    isLg ? "size-2" : "size-1.5"
   )
 
   if (!editable) {
     return (
       <span className={pillClassName} style={colorStyle}>
-        <span aria-hidden className="size-1.5 rounded-full bg-current" />
+        <span aria-hidden className={dotClassName} />
         {formatStatusLabel(status)}
       </span>
     )
@@ -126,7 +135,7 @@ export function StatusControl({
           />
         }
       >
-        <span aria-hidden className="size-1.5 rounded-full bg-current" />
+        <span aria-hidden className={dotClassName} />
         {formatStatusLabel(status)}
         <ChevronDown aria-hidden className="opacity-60" />
       </DropdownMenuTrigger>
