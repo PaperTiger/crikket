@@ -22,8 +22,9 @@ import {
   TableRow,
 } from "@crikket/ui/components/ui/table"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
+import { ImageIcon, Loader2, Play } from "lucide-react"
 import type { Route } from "next"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import type { ReactNode } from "react"
 import * as React from "react"
@@ -133,6 +134,32 @@ function useIssueTriage(onSettled: () => Promise<void>) {
   }
 }
 
+/**
+ * Compact landscape preview for a table row. Same fixed aspect (video/16:9) and
+ * fallback logic as the grid card, so both views read consistently.
+ */
+function IssueThumbnail({ report }: { report: BugReportListItem }) {
+  const src =
+    report.thumbnail ??
+    (report.attachmentType === "screenshot" ? report.attachmentUrl : null)
+
+  return (
+    <div className="relative aspect-video w-20 shrink-0 overflow-hidden rounded border bg-muted">
+      {src ? (
+        <Image alt="" className="object-cover" fill sizes="80px" src={src} />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+          {report.attachmentType === "video" ? (
+            <Play className="size-4" />
+          ) : (
+            <ImageIcon className="size-4" />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function initials(name: string): string {
   return name
     .split(WHITESPACE_RE)
@@ -240,6 +267,10 @@ function IssueRow({
       role="button"
       tabIndex={0}
     >
+      <TableCell className="w-[92px]">
+        <IssueThumbnail report={report} />
+      </TableCell>
+
       <TableCell className="max-w-[420px]">
         <div className="truncate font-medium" title={report.title}>
           {report.title || "Untitled issue"}
@@ -415,6 +446,9 @@ export function BugReportsIssuesTable({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[92px]">
+                  <span className="sr-only">Preview</span>
+                </TableHead>
                 <TableHead>Issue</TableHead>
                 <TableHead>Status</TableHead>
                 {guestMode ? null : <TableHead>Assignee</TableHead>}
