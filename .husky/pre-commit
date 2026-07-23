@@ -7,76 +7,14 @@ bun run build
 
 bun test
 
-# Check if there are any staged files
-if [ -z "$(git diff --cached --name-only)" ]; then
-  echo "No staged files to format"
-  exit 0
-fi
-
-# Store the hash of staged changes to detect modifications
-STAGED_HASH=$(git diff --cached | sha256sum | cut -d' ' -f1)
-
-# Save list of staged files (handling all file states)
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
-PARTIALLY_STAGED=$(git diff --name-only)
-
-# Stash unstaged changes to preserve working directory
-# --keep-index keeps staged changes in working tree
-STASHED=0
-if [ -n "$PARTIALLY_STAGED" ]; then
-  git stash push --quiet --keep-index --message "pre-commit-stash"
-  STASHED=1
-fi
-
-# Run formatter on the staged files
-set +e
-bun x ultracite fix
-FORMAT_EXIT_CODE=$?
-set -e
-
-# Restore working directory state
-if [ $STASHED -eq 1 ]; then
-  # Re-stage the formatted files
-  if [ -n "$STAGED_FILES" ]; then
-    echo "$STAGED_FILES" | while IFS= read -r file; do
-      if [ -f "$file" ]; then
-        git add "$file"
-      fi
-    done
-  fi
-
-  # Restore unstaged changes; abort commit if this fails (e.g. merge conflict)
-  if ! git stash pop --quiet; then
-    echo "❌ Failed to restore unstaged changes cleanly."
-    echo "Resolve conflicts, then retry the commit."
-    exit 1
-  fi
-
-  # Restore partial staging if files were partially staged
-  if [ -n "$PARTIALLY_STAGED" ]; then
-    for file in $PARTIALLY_STAGED; do
-      if [ -f "$file" ] && echo "$STAGED_FILES" | grep -q "^$file$"; then
-        # File was partially staged - need to unstage the unstaged parts
-        git restore --staged "$file" 2>/dev/null || true
-        git add -p "$file" < /dev/null 2>/dev/null || git add "$file"
-      fi
-    done
-  fi
-else
-  # No stash was created, just re-add the formatted files
-  if [ -n "$STAGED_FILES" ]; then
-    echo "$STAGED_FILES" | while IFS= read -r file; do
-      if [ -f "$file" ]; then
-        git add "$file"
-      fi
-    done
-  fi
-fi
-
-# Check if staged files actually changed
-NEW_STAGED_HASH=$(git diff --cached | sha256sum | cut -d' ' -f1)
-if [ "$STAGED_HASH" != "$NEW_STAGED_HASH" ]; then
-  echo "✨ Files formatted by Ultracite"
-fi
-
-exit $FORMAT_EXIT_CODE
+# Format staged files only.
+#
+# lint-staged reads the config already in package.json, runs `ultracite fix`
+# against just the staged paths, and handles stashing/restoring unstaged work
+# itself.
+#
+# This replaces a hand-rolled stash/restore block that ran `ultracite fix` over
+# the WHOLE repo and ended in `exit $FORMAT_EXIT_CODE`. With pre-existing lint
+# errors elsewhere in the tree, that call always exited non-zero, so every
+# commit was rejected no matter what was staged.
+bun x lint-staged
