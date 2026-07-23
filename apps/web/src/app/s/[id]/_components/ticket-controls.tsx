@@ -474,7 +474,7 @@ export function DescriptionField({
   const [draft, setDraft] = useState(body)
 
   const textClassName =
-    "whitespace-pre-wrap text-base text-foreground leading-relaxed"
+    "whitespace-pre-wrap text-foreground text-sm leading-relaxed"
 
   if (isEditing) {
     const handleSave = () => {
@@ -491,7 +491,7 @@ export function DescriptionField({
       <div className="space-y-2">
         <Textarea
           autoFocus
-          className="min-h-24 text-base"
+          className="min-h-24 text-sm"
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
           value={draft}
