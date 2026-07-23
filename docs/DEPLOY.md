@@ -35,7 +35,26 @@ build — see [Not our deploy path](#8-things-that-look-like-deploy-tooling-but-
 this repo, which is why it isn't greppable):
 
 - push/merge to **`master`** → **production** deploy of both projects
-- push to **any other branch** → **preview** deploy of both projects (safe; use it to test)
+- push to **any other branch** → **preview** deploy of both projects
+
+### ⚠️ Preview deploys are NOT a sandbox
+
+`DATABASE_URL` on `crikket-server` is scoped to **"Production and Preview"** — one value,
+both environments. **Every preview deploy talks to the production database.** Verified
+2026-07-23.
+
+A preview is built from *any* pushed branch, i.e. unreviewed work-in-progress code, and it
+**reads and writes live production data**. So:
+
+- Treat a preview URL as production. Clicking around one is not "just testing."
+- Never exercise destructive or bulk actions in a preview — deletes, bulk status changes,
+  seeding, invite sends — they hit real rows and real inboxes.
+- A preview is genuinely useful for **UI and read-path review**. It is not a safe place to
+  try out a risky mutation.
+
+To make previews genuinely isolated, add a **Preview-scoped** `DATABASE_URL` in Vercel →
+project → Settings → Environment Variables pointing at a separate branch/staging database.
+Until that exists, the warning above stands.
 
 ---
 
@@ -44,10 +63,19 @@ this repo, which is why it isn't greppable):
 Run these in order. Steps 2 and 3 are the ones that get skipped.
 
 ```bash
-# 1. Preflight — both must be clean
+# 1. Preflight — typecheck must be clean repo-wide
 bunx turbo run check-types
-bunx biome check .
+
+# Lint only what you changed (see the note below before running a repo-wide lint)
+git diff --name-only --diff-filter=d origin/master...HEAD -- '*.ts' '*.tsx' '*.css' \
+  | xargs -r bunx ultracite check
 ```
+
+> **Do not gate on `biome check .`** — the tree carries ~13k pre-existing lint errors, so a
+> repo-wide run always fails and tells you nothing about your change. The `.husky/pre-commit`
+> hook already runs `ultracite fix` on **staged files only** via `lint-staged`; that is the
+> real gate. (An earlier whole-repo version of that hook rejected every commit for exactly
+> this reason.)
 
 **2. If this change adds or edits anything in `packages/db/src/migrations/` — apply the
 migrations to production NOW, before merging.** See [§3](#3-migrations-the-step-that-gets-missed).
@@ -109,10 +137,38 @@ migrations are unapplied.
 
 ### Schema conventions (important)
 
+Both rules below guard the same failure: **SQL that succeeds but lands in the wrong schema.**
+Nothing errors at the time — you find out when the app gets `permission denied` or an empty
+result.
+
 - Crikket's tables live in the **`crikket`** schema, not `public`. The connection sets
   `search_path=crikket`, so migrations use **unqualified** table names.
 - `drizzle-kit generate` emits foreign keys as `REFERENCES "public"."x"`. **Strip the
   `public.` qualifier** before applying, or the FK points at the wrong schema.
+- **Applying migrations out of band? Set the role and schema first.** The Supabase SQL editor
+  and MCP run as a privileged role with `search_path=public`. Paste migration SQL as-is and
+  the tables are created **in `public`, owned by `postgres`** — leaving `crikket_app` with no
+  privileges and production broken in a new, more confusing way. Always prefix:
+
+  ```sql
+  set role crikket_app;
+  set search_path to crikket;
+  -- ...the migration SQL...
+  ```
+
+  Then verify placement **and** ownership before moving on:
+
+  ```sql
+  select schemaname, tablename, tableowner from pg_tables where tablename = '<new_table>';
+  -- expect: crikket | <new_table> | crikket_app
+  ```
+
+  And record it in the journal, or `bun db:migrate` will try to re-apply it later:
+
+  ```sql
+  insert into drizzle.__drizzle_migrations (hash, created_at)
+  values ('<sha256 of the .sql file>', <"when" from meta/_journal.json>);
+  ```
 - Keep migrations idempotent (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`) — they sometimes get
   applied out of band and re-run.
 - New tables in `crikket` need **no extra grants**: the app role `crikket_app` owns every
@@ -191,32 +247,11 @@ SQL — the migration SQL was sound. Supabase *direct* connections
 (`db.<ref>.supabase.co:5432`) often fail without IPv6/the IPv4 add-on. Use the **transaction
 pooler** connection string (port `6543`) from Supabase → Project Settings → Database.
 
-**2. If you apply migrations out of band, set the role and schema first.** Applying SQL via
-the Supabase SQL editor or MCP runs as a privileged role with `search_path=public`. Run the
-DDL as-is and your tables are created **in `public`, owned by `postgres`** — so `crikket_app`
-gets no privileges and production stays broken in a new, more confusing way. Always prefix:
-
-```sql
-set role crikket_app;
-set search_path to crikket;
--- ...the migration SQL...
-```
-
-Then verify placement *and* ownership before moving on:
-
-```sql
-select schemaname, tablename, tableowner from pg_tables where tablename = '<new_table>';
--- expect: crikket | <new_table> | crikket_app
-```
-
-And record it in Drizzle's journal, or `bun db:migrate` will try to re-apply it later:
-
-```sql
-insert into drizzle.__drizzle_migrations (hash, created_at)
-values ('<sha256 of the .sql file>', <"when" from meta/_journal.json>);
-```
-
-The journal row count must equal the number of `.sql` files in `packages/db/src/migrations/`.
+**2. Applying migrations out of band is how you create a *second* incident.** The fix here was
+applied through the Supabase MCP, which runs privileged with `search_path=public` — pasting the
+DDL as-is would have created both tables in `public` owned by `postgres`, leaving `crikket_app`
+without privileges. The `set role` / `set search_path` / verify-ownership / record-the-journal
+procedure is in [§3 Schema conventions](#schema-conventions-important). Follow it every time.
 
 **Rollback (unused, kept for reference):** there is no down migration. Both tables are
 additive and nothing else references them, so
@@ -235,6 +270,20 @@ After any production deploy:
 3. Sidebar **Projects** lists projects and a project link opens its issues table.
 4. Open a report detail (`/s/<id>`).
 5. Check Vercel runtime logs for 500s (filter by `statusCode`) on both projects.
+
+### Guest access + project teams
+
+Only needed when touching those features. Steps 6–7 are the ones that catch a bad
+`RESEND_API_KEY` or `ALLOWED_SIGNUP_DOMAINS` (see §5) — both fail *silently* otherwise.
+
+1. Signed in as an org owner, the sidebar shows **My Projects** and **All Projects**.
+2. Open a project → **Manage access** — the dialog lists a Team section and a Guests section.
+3. Type a teammate's name in the invite field; they appear as a suggestion with "Add to team".
+4. **Settings → Guest Management** loads and lists guests (empty is correct on day one).
+5. **Settings → Organization** members list shows teammates only, no guests.
+6. Invite a guest using a real address you control and confirm the email actually arrives.
+7. Accept the invite in a private window; confirm it lands on `/portal` and that **only** the
+   granted project is listed.
 
 ---
 

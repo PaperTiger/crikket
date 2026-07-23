@@ -30,7 +30,11 @@ fine without asking. The gate is on *merging* and on *production*.
 
 - **Never commit directly to `master`.** Branch from it: `feat/…`, `fix/…`, `docs/…`.
 - Push the branch and open a PR. Every branch gets an automatic **Vercel preview deploy** of
-  both apps — use it to verify before proposing a merge.
+  both apps — useful for reviewing UI and read paths before proposing a merge.
+- ⚠️ **A preview deploy is not a sandbox.** `DATABASE_URL` is scoped to "Production and
+  Preview", so previews read and write the **production database**. Never run destructive or
+  bulk actions (deletes, bulk edits, seeding, invite sends) in a preview — they hit real data
+  and real inboxes.
 - When the work is ready, **summarize what changed and ask the user to approve the merge.**
   Say explicitly whether the change needs a migration (see below).
 - `master` is the only production branch. Merging to it deploys. Treat every merge as a
@@ -76,9 +80,17 @@ Full procedure, including the out-of-band and connectivity gotchas:
 ## Before proposing a merge
 
 ```bash
-bunx turbo run check-types   # must be clean
-bunx biome check .           # must be clean
+bunx turbo run check-types   # must be clean, repo-wide
+
+# Lint only what you changed:
+git diff --name-only --diff-filter=d origin/master...HEAD -- '*.ts' '*.tsx' '*.css' \
+  | xargs -r bunx ultracite check
 ```
+
+> ⚠️ **Never gate on `biome check .`** — the tree carries ~13k pre-existing lint errors, so a
+> repo-wide run always fails and says nothing about your change. `.husky/pre-commit` already
+> runs `ultracite fix` on **staged files only**; that is the real gate. Don't "fix" the repo's
+> lint as part of an unrelated change.
 
 If you touched `sdks/capture/`, resync the served widget bundle — `apps/web/public/capture.js`
 is a **checked-in copy** and is what every client site loads:
