@@ -1,13 +1,18 @@
 # Deploying guest access + project teams
 
+> **Corrected 2026-07-23.** This runbook originally described a Docker/GHCR deploy. That is not
+> how this app ships — **production is Vercel, and merging to `master` deploys automatically**.
+> See [DEPLOY.md](./DEPLOY.md) for the canonical process. The migration, verification, rollback
+> and smoke-test content below is still accurate.
+
 Two features are ready on `feat/guest-access`: **guest accounts** (clients log in and follow
 specific projects) and **project teams** (org members pick which projects they're working on).
 
 This release includes **two database migrations, one of which writes rows**. Read the ordering
 section before starting.
 
-Nothing here can be run from a developer laptop — it needs the production `DATABASE_URL` and
-access to whatever host runs the images.
+Applying the migrations needs the production `DATABASE_URL`; it can be run from a developer
+machine that has it.
 
 ---
 
@@ -36,14 +41,19 @@ rebased onto `master` on its own.
 1. Merge `feat/ticket-breadcrumbs` → `master`
 2. Merge `feat/guest-access` → `master`
 
-Pushing to `master` triggers `.github/workflows/docker-publish.yml`, which builds and pushes the
-`web` and `server` images to GHCR. **That workflow publishes images; it does not deploy them.**
+⚠️ **Run the migrations in §2 BEFORE merging.** Merging to `master` triggers a Vercel production
+deploy automatically (~1 min) — there is no window in which you control when the new code starts
+serving. Both migrations are additive, so applying them ahead of the merge is safe: the current
+production code ignores the new tables.
 
-## 2. Run the migrations — before the new images serve traffic
+(`.github/workflows/docker-publish.yml` also fires on a master push and pushes images to GHCR.
+Those images are an upstream open-source artifact — production does not run them, and publishing
+them deploys nothing.)
 
-The new code queries tables that don't exist yet. If the containers come up first, every request
-touching projects or guests returns a 500 until the migrations land. Take the short window in this
-order:
+## 2. Run the migrations — before merging to `master`
+
+The new code queries tables that don't exist yet, so until these are applied every request
+touching projects or guests returns a 500:
 
 ```
 bun --filter @crikket/db db:migrate
@@ -80,15 +90,15 @@ DROP TABLE IF EXISTS "project_team_member";
 DROP TABLE IF EXISTS "project_guest_grant";
 ```
 
-Then redeploy the previous images. No existing table is altered by this release, so the old code
-runs fine against the new schema — you can also just roll the images back and leave the tables in
-place.
+Then roll the Vercel deployment back. No existing table is altered by this release, so the old
+code runs fine against the new schema — you can also just roll the deployment back and leave the
+tables in place.
 
-## 3. Deploy the images
+## 3. Deploy
 
-Pull the new `web` and `server` tags from GHCR onto the host and restart, however that's normally
-done here. The compose files in the repo root (`docker-compose.yml`,
-`docker-compose.caddy.yml`, `docker-compose.external-db.yml`) describe the service shape.
+Merging to `master` (§1) *is* the deploy — Vercel builds and promotes `crikket-web` and
+`crikket-server` automatically. Watch both builds reach `READY` in the Vercel dashboard, then run
+the smoke test below. No images to pull, no host to restart.
 
 ## 4. Smoke test
 

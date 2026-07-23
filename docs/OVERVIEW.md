@@ -141,6 +141,9 @@ serves.
 
 ## 5. Common tasks
 
+- **Deploy:** see **[DEPLOY.md](./DEPLOY.md)** — the canonical guide. Short version:
+  production is **Vercel**, and merging to `master` deploys both apps automatically.
+  Migrations are *not* run by the deploy and must be applied first.
 - **Run the dashboard:** `bun run dev:web` (needs env incl. `DATABASE_URL`,
   `NEXT_PUBLIC_*`).
 - **Iterate on the widget:** `bun run dev` in `sdks/capture`; test on a plain
