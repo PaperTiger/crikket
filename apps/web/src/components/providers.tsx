@@ -18,7 +18,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         enableSystem
       >
         <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
+          {/* Delay so tooltips only appear once you settle on an element,
+              rather than flashing as the cursor passes over. */}
+          <TooltipProvider delay={600}>
             {children}
             <ReactQueryDevtools />
           </TooltipProvider>

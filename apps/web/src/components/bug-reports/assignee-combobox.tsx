@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@crikket/ui/components/ui/tooltip"
+import { cn } from "@crikket/ui/lib/utils"
 import { useQuery } from "@tanstack/react-query"
 import { ChevronsUpDown, UserRound } from "lucide-react"
 import * as React from "react"
@@ -67,11 +68,11 @@ export function AssigneeCombobox({
     <Button
       aria-expanded={open}
       aria-label={selected ? selected.name : "Assign to…"}
-      className="size-8"
+      className={cn("rounded-full", !selected && "border-border")}
       disabled={disabled}
-      size="icon-sm"
+      size="icon-xs"
       type="button"
-      variant={selected ? "ghost" : "outline"}
+      variant="ghost"
     >
       {selected ? (
         <Avatar size="sm">
@@ -81,7 +82,7 @@ export function AssigneeCombobox({
           <AvatarFallback>{getInitials(selected.name)}</AvatarFallback>
         </Avatar>
       ) : (
-        <UserRound className="size-4 text-muted-foreground" />
+        <UserRound className="size-3.5 text-muted-foreground" />
       )}
     </Button>
   )

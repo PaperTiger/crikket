@@ -197,16 +197,19 @@ function fieldTriggerButton(disabled?: boolean) {
   )
 }
 
-/** Compact icon-only trigger with a subtle outline — dense listing rows. */
+/**
+ * Compact round icon-only trigger — dense listing rows. Avatar-sized (size-6),
+ * outline only (no fill), matching the assignee avatar next to it.
+ */
 function iconTriggerButton(disabled?: boolean, ariaLabel?: string) {
   return (
     <Button
       aria-label={ariaLabel}
-      className="size-8"
+      className="rounded-full border-border"
       disabled={disabled}
-      size="icon-sm"
+      size="icon-xs"
       type="button"
-      variant="outline"
+      variant="ghost"
     />
   )
 }
@@ -271,11 +274,11 @@ export function TypeControl({
             render={<DropdownMenuTrigger render={iconTriggerButton(disabled)} />}
           >
             {ActiveIcon ? (
-              <ActiveIcon aria-hidden className="size-4" />
+              <ActiveIcon aria-hidden className="size-3.5" />
             ) : (
               <CircleDashed
                 aria-hidden
-                className="size-4 text-muted-foreground"
+                className="size-3.5 text-muted-foreground"
               />
             )}
           </TooltipTrigger>
@@ -369,12 +372,12 @@ export function PriorityControl({
             {ActiveIcon ? (
               <ActiveIcon
                 aria-hidden
-                className={cn("size-4", active?.colorClassName)}
+                className={cn("size-3.5", active?.colorClassName)}
               />
             ) : (
               <CircleDashed
                 aria-hidden
-                className="size-4 text-muted-foreground"
+                className="size-3.5 text-muted-foreground"
               />
             )}
           </TooltipTrigger>

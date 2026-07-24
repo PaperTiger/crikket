@@ -298,7 +298,7 @@ function IssueRow({
       {/* Icon-only controls, each opening its dropdown/popup. Type and assignee
           are staff-only (category isn't guest-editable, and guests can't
           enumerate the staff directory); priority is editable by both. */}
-      <div className="flex shrink-0 items-center">
+      <div className="flex shrink-0 items-center gap-1.5">
         {guestMode ? null : (
           <TypeControl
             category={report.category}
