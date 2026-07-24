@@ -130,9 +130,9 @@ function IssueThumbnail({ report }: { report: BugReportListItem }) {
     (report.attachmentType === "screenshot" ? report.attachmentUrl : null)
 
   return (
-    <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded border bg-muted">
+    <div className="relative aspect-video w-[89px] shrink-0 overflow-hidden rounded border bg-muted">
       {src ? (
-        <Image alt="" className="object-cover" fill sizes="64px" src={src} />
+        <Image alt="" className="object-cover" fill sizes="89px" src={src} />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
           {report.attachmentType === "video" ? (
