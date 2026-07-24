@@ -21,6 +21,11 @@ import {
   DropdownMenuTrigger,
 } from "@crikket/ui/components/ui/dropdown-menu"
 import { Textarea } from "@crikket/ui/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@crikket/ui/components/ui/tooltip"
 import { cn } from "@crikket/ui/lib/utils"
 import { useMutation } from "@tanstack/react-query"
 import {
@@ -116,15 +121,10 @@ export function StatusControl({
     isLg && "h-8 gap-2 px-3 text-sm [&>svg]:size-4!",
     colorStyle ? "" : "text-muted-foreground"
   )
-  const dotClassName = cn(
-    "rounded-full bg-current",
-    isLg ? "size-2" : "size-1.5"
-  )
 
   if (!editable) {
     return (
       <span className={pillClassName} style={colorStyle}>
-        <span aria-hidden className={dotClassName} />
         {formatStatusLabel(status)}
       </span>
     )
@@ -145,7 +145,6 @@ export function StatusControl({
           />
         }
       >
-        <span aria-hidden className={dotClassName} />
         {formatStatusLabel(status)}
         <ChevronDown aria-hidden className="opacity-60" />
       </DropdownMenuTrigger>
@@ -198,7 +197,7 @@ function fieldTriggerButton(disabled?: boolean) {
   )
 }
 
-/** Compact icon-only trigger — used in the dense listing rows. */
+/** Compact icon-only trigger with a subtle outline — dense listing rows. */
 function iconTriggerButton(disabled?: boolean, ariaLabel?: string) {
   return (
     <Button
@@ -207,7 +206,7 @@ function iconTriggerButton(disabled?: boolean, ariaLabel?: string) {
       disabled={disabled}
       size="icon-sm"
       type="button"
-      variant="ghost"
+      variant="outline"
     />
   )
 }
@@ -244,47 +243,58 @@ export function TypeControl({
     )
   }
 
+  const menuContent = (
+    <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuRadioGroup
+        onValueChange={(next) => {
+          if (next !== category) {
+            onChange(next as BugReportCategory)
+          }
+        }}
+        value={category ?? ""}
+      >
+        {CATEGORY_FIELD_OPTIONS.map((option) => (
+          <DropdownMenuRadioItem key={option.value} value={option.value}>
+            <option.icon aria-hidden className="size-3.5" />
+            {option.label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  )
+
+  if (iconOnly) {
+    return (
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger
+            render={<DropdownMenuTrigger render={iconTriggerButton(disabled)} />}
+          >
+            {ActiveIcon ? (
+              <ActiveIcon aria-hidden className="size-4" />
+            ) : (
+              <CircleDashed
+                aria-hidden
+                className="size-4 text-muted-foreground"
+              />
+            )}
+          </TooltipTrigger>
+          <TooltipContent>{formatCategoryLabel(category)}</TooltipContent>
+        </Tooltip>
+        {menuContent}
+      </DropdownMenu>
+    )
+  }
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          iconOnly
-            ? iconTriggerButton(disabled, formatCategoryLabel(category))
-            : fieldTriggerButton(disabled)
-        }
-      >
-        {iconOnly ? (
-          ActiveIcon ? (
-            <ActiveIcon aria-hidden className="size-4" />
-          ) : (
-            <CircleDashed aria-hidden className="size-4 text-muted-foreground" />
-          )
-        ) : (
-          <>
-            <span className="flex min-w-0 items-center gap-1.5 truncate">
-              {value}
-            </span>
-            <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
-          </>
-        )}
+      <DropdownMenuTrigger render={fieldTriggerButton(disabled)}>
+        <span className="flex min-w-0 items-center gap-1.5 truncate">
+          {value}
+        </span>
+        <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuRadioGroup
-          onValueChange={(next) => {
-            if (next !== category) {
-              onChange(next as BugReportCategory)
-            }
-          }}
-          value={category ?? ""}
-        >
-          {CATEGORY_FIELD_OPTIONS.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              <option.icon aria-hidden className="size-3.5" />
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
+      {menuContent}
     </DropdownMenu>
   )
 }
@@ -326,53 +336,64 @@ export function PriorityControl({
     )
   }
 
+  const menuContent = (
+    <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuRadioGroup
+        onValueChange={(next) => {
+          if (next !== priority) {
+            onChange(next as Priority)
+          }
+        }}
+        value={priority}
+      >
+        {PRIORITY_FIELD_OPTIONS.map((option) => (
+          <DropdownMenuRadioItem key={option.value} value={option.value}>
+            <option.icon
+              aria-hidden
+              className={cn("size-3.5", option.colorClassName)}
+            />
+            {option.label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  )
+
+  if (iconOnly) {
+    return (
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger
+            render={<DropdownMenuTrigger render={iconTriggerButton(disabled)} />}
+          >
+            {ActiveIcon ? (
+              <ActiveIcon
+                aria-hidden
+                className={cn("size-4", active?.colorClassName)}
+              />
+            ) : (
+              <CircleDashed
+                aria-hidden
+                className="size-4 text-muted-foreground"
+              />
+            )}
+          </TooltipTrigger>
+          <TooltipContent>{active?.label ?? priority}</TooltipContent>
+        </Tooltip>
+        {menuContent}
+      </DropdownMenu>
+    )
+  }
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          iconOnly
-            ? iconTriggerButton(disabled, active?.label ?? priority)
-            : fieldTriggerButton(disabled)
-        }
-      >
-        {iconOnly ? (
-          ActiveIcon ? (
-            <ActiveIcon
-              aria-hidden
-              className={cn("size-4", active?.colorClassName)}
-            />
-          ) : (
-            <CircleDashed aria-hidden className="size-4 text-muted-foreground" />
-          )
-        ) : (
-          <>
-            <span className="flex min-w-0 items-center gap-1.5 truncate">
-              {value}
-            </span>
-            <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
-          </>
-        )}
+      <DropdownMenuTrigger render={fieldTriggerButton(disabled)}>
+        <span className="flex min-w-0 items-center gap-1.5 truncate">
+          {value}
+        </span>
+        <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuRadioGroup
-          onValueChange={(next) => {
-            if (next !== priority) {
-              onChange(next as Priority)
-            }
-          }}
-          value={priority}
-        >
-          {PRIORITY_FIELD_OPTIONS.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              <option.icon
-                aria-hidden
-                className={cn("size-3.5", option.colorClassName)}
-              />
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
+      {menuContent}
     </DropdownMenu>
   )
 }

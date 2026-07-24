@@ -19,6 +19,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@crikket/ui/components/ui/popover"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@crikket/ui/components/ui/tooltip"
 import { useQuery } from "@tanstack/react-query"
 import { ChevronsUpDown, UserRound } from "lucide-react"
 import * as React from "react"
@@ -56,6 +61,8 @@ export function AssigneeCombobox({
   const people = peopleQuery.data ?? []
   const selected = people.find((person) => person.id === value)
 
+  // Outline only when showing the placeholder — a selected avatar has its own
+  // ring, so an extra border would double up.
   const compactTrigger = (
     <Button
       aria-expanded={open}
@@ -63,9 +70,8 @@ export function AssigneeCombobox({
       className="size-8"
       disabled={disabled}
       size="icon-sm"
-      title={selected ? selected.name : "No assignee"}
       type="button"
-      variant="ghost"
+      variant={selected ? "ghost" : "outline"}
     >
       {selected ? (
         <Avatar size="sm">
@@ -105,53 +111,71 @@ export function AssigneeCombobox({
     </Button>
   )
 
-  return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger render={compact ? compactTrigger : fullTrigger} />
-      <PopoverContent align="start" className="w-72 p-0">
-        <Command>
-          <CommandInput placeholder="Search people..." />
-          <CommandList>
-            <CommandEmpty>No people found.</CommandEmpty>
-            <CommandGroup>
+  const popoverContent = (
+    <PopoverContent align="start" className="w-72 p-0">
+      <Command>
+        <CommandInput placeholder="Search people..." />
+        <CommandList>
+          <CommandEmpty>No people found.</CommandEmpty>
+          <CommandGroup>
+            <CommandItem
+              data-checked={value === null}
+              onSelect={() => {
+                onChange(null)
+                setOpen(false)
+              }}
+              value="Unassigned"
+            >
+              <span className="text-muted-foreground">Unassigned</span>
+            </CommandItem>
+            {people.map((person) => (
               <CommandItem
-                data-checked={value === null}
+                data-checked={value === person.id}
+                key={person.id}
                 onSelect={() => {
-                  onChange(null)
+                  onChange(person.id)
                   setOpen(false)
                 }}
-                value="Unassigned"
+                value={person.name}
               >
-                <span className="text-muted-foreground">Unassigned</span>
-              </CommandItem>
-              {people.map((person) => (
-                <CommandItem
-                  data-checked={value === person.id}
-                  key={person.id}
-                  onSelect={() => {
-                    onChange(person.id)
-                    setOpen(false)
-                  }}
-                  value={person.name}
-                >
-                  <Avatar size="sm">
-                    {person.avatarUrl ? (
-                      <AvatarImage alt={person.name} src={person.avatarUrl} />
-                    ) : null}
-                    <AvatarFallback>{getInitials(person.name)}</AvatarFallback>
-                  </Avatar>
-                  <span className="truncate">{person.name}</span>
-                  {person.discipline ? (
-                    <span className="truncate text-muted-foreground text-xs">
-                      {person.discipline}
-                    </span>
+                <Avatar size="sm">
+                  {person.avatarUrl ? (
+                    <AvatarImage alt={person.name} src={person.avatarUrl} />
                   ) : null}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
+                  <AvatarFallback>{getInitials(person.name)}</AvatarFallback>
+                </Avatar>
+                <span className="truncate">{person.name}</span>
+                {person.discipline ? (
+                  <span className="truncate text-muted-foreground text-xs">
+                    {person.discipline}
+                  </span>
+                ) : null}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  )
+
+  if (compact) {
+    return (
+      <Popover onOpenChange={setOpen} open={open}>
+        <Tooltip>
+          <TooltipTrigger render={<PopoverTrigger render={compactTrigger} />} />
+          <TooltipContent>
+            {selected ? selected.name : "No assignee"}
+          </TooltipContent>
+        </Tooltip>
+        {popoverContent}
+      </Popover>
+    )
+  }
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger render={fullTrigger} />
+      {popoverContent}
     </Popover>
   )
 }

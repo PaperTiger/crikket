@@ -343,10 +343,15 @@ function IssueRow({
       </button>
 
       {report.commentCount > 0 ? (
-        <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums">
+        <button
+          aria-label={`${report.commentCount} comments — open ticket`}
+          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground text-xs tabular-nums transition-colors hover:bg-muted hover:text-foreground"
+          onClick={onOpen}
+          type="button"
+        >
           <MessageSquare className="size-3.5" />
           {report.commentCount}
-        </span>
+        </button>
       ) : null}
 
       <div className="shrink-0">
