@@ -1,9 +1,15 @@
 import { db } from "@crikket/db"
-import { bugReport, capturePublicKey } from "@crikket/db/schema/bug-report"
 import {
+  bugReport,
+  bugReportComment,
+  capturePublicKey,
+} from "@crikket/db/schema/bug-report"
+import {
+  BUG_REPORT_COMMENT_VISIBILITY_OPTIONS,
   BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS,
   BUG_REPORT_SORT_OPTIONS,
   BUG_REPORT_SUBMISSION_STATUS_OPTIONS,
+  type BugReportCategory,
   type BugReportDebuggerIngestionStatus,
   type BugReportSort,
   type BugReportSubmissionStatus,
@@ -38,6 +44,7 @@ import { isExpiringSignedUrl, resolveCaptureUrl } from "../lib/storage"
 import {
   formatDurationMs,
   isAttachmentType,
+  isCategory,
   isStatus,
   isVisibility,
   statusValues,
@@ -76,9 +83,14 @@ export interface BugReportListItem {
   debuggerIngestionStatus: BugReportDebuggerIngestionStatus
   debuggerIngestionError: string | undefined
   priority: Priority
+  category: BugReportCategory | null
   tags: string[]
   url: string | undefined
   assigneeId: string | null
+  /** Reporter email — organization members only, never guests. */
+  reporterEmail: string | null
+  /** Comments visible to the viewer. */
+  commentCount: number
   createdAt: string
   updatedAt: string
 }
@@ -237,6 +249,7 @@ interface BugReportListRecord {
   visibility: string
   status: string
   priority: string
+  category: string | null
   tags: string[] | null
   url: string | null
   assigneeId: string | null
@@ -245,11 +258,60 @@ interface BugReportListRecord {
   reporter: {
     name: string | null
     image: string | null
+    email: string | null
   } | null
 }
 
+/** Comments per report for the current page; guests only count what they see. */
+async function fetchCommentCounts(
+  reportIds: string[],
+  isGuest: boolean
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  if (reportIds.length === 0) {
+    return counts
+  }
+  const filters = [inArray(bugReportComment.bugReportId, reportIds)]
+  if (isGuest) {
+    filters.push(
+      eq(
+        bugReportComment.visibility,
+        BUG_REPORT_COMMENT_VISIBILITY_OPTIONS.everyone
+      )
+    )
+  }
+  const rows = await db
+    .select({ bugReportId: bugReportComment.bugReportId, value: count() })
+    .from(bugReportComment)
+    .where(and(...filters))
+    .groupBy(bugReportComment.bugReportId)
+  for (const row of rows) {
+    counts.set(row.bugReportId, row.value)
+  }
+  return counts
+}
+
+function normalizeSubmissionStatus(value: string): BugReportSubmissionStatus {
+  return (
+    Object.values(BUG_REPORT_SUBMISSION_STATUS_OPTIONS) as string[]
+  ).includes(value)
+    ? (value as BugReportSubmissionStatus)
+    : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
+}
+
+function normalizeDebuggerIngestionStatus(
+  value: string
+): BugReportDebuggerIngestionStatus {
+  return (
+    Object.values(BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS) as string[]
+  ).includes(value)
+    ? (value as BugReportDebuggerIngestionStatus)
+    : BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.completed
+}
+
 async function mapBugReportListItem(
-  report: BugReportListRecord
+  report: BugReportListRecord,
+  opts: { commentCount: number; canSeeEmail: boolean }
 ): Promise<BugReportListItem> {
   const metadata = report.metadata as Record<string, unknown> | null
   const attachmentType = isAttachmentType(report.attachmentType)
@@ -285,31 +347,18 @@ async function mapBugReportListItem(
     attachmentType,
     visibility: isVisibility(report.visibility) ? report.visibility : "private",
     status: isStatus(report.status) ? report.status : "to_do",
-    submissionStatus:
-      report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.failed ||
-      report.submissionStatus ===
-        BUG_REPORT_SUBMISSION_STATUS_OPTIONS.processing ||
-      report.submissionStatus === BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready
-        ? report.submissionStatus
-        : BUG_REPORT_SUBMISSION_STATUS_OPTIONS.ready,
-    debuggerIngestionStatus:
-      report.debuggerIngestionStatus ===
-        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.notUploaded ||
-      report.debuggerIngestionStatus ===
-        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.pending ||
-      report.debuggerIngestionStatus ===
-        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.processing ||
-      report.debuggerIngestionStatus ===
-        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.completed ||
-      report.debuggerIngestionStatus ===
-        BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.failed
-        ? report.debuggerIngestionStatus
-        : BUG_REPORT_DEBUGGER_INGESTION_STATUS_OPTIONS.completed,
+    submissionStatus: normalizeSubmissionStatus(report.submissionStatus),
+    debuggerIngestionStatus: normalizeDebuggerIngestionStatus(
+      report.debuggerIngestionStatus
+    ),
     debuggerIngestionError: report.debuggerIngestionError ?? undefined,
     priority: normalizePriority(report.priority),
+    category: isCategory(report.category) ? report.category : null,
     tags: Array.isArray(report.tags) ? report.tags : [],
     url: report.url ?? undefined,
     assigneeId: report.assigneeId,
+    reporterEmail: opts.canSeeEmail ? (report.reporter?.email ?? null) : null,
+    commentCount: opts.commentCount,
     uploader,
     createdAt: report.createdAt.toISOString(),
     updatedAt: report.updatedAt.toISOString(),
@@ -415,9 +464,17 @@ export const listBugReports = protectedProcedure
 
       const totalCount = countResult[0]?.value ?? 0
 
+      const commentCounts = await fetchCommentCounts(
+        bugReports.map((report) => report.id),
+        viewer.isGuest
+      )
+      const canSeeEmail = !viewer.isGuest
       const items = await Promise.all(
         bugReports.map((report) =>
-          mapBugReportListItem(report as BugReportListRecord)
+          mapBugReportListItem(report as BugReportListRecord, {
+            commentCount: commentCounts.get(report.id) ?? 0,
+            canSeeEmail,
+          })
         )
       )
 

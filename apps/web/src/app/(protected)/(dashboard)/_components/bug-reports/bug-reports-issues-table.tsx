@@ -1,28 +1,31 @@
 "use client"
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@crikket/ui/components/ui/avatar"
+import { ConfirmationDialog } from "@crikket/ui/components/dialogs/confirmation-dialog"
 import { Button } from "@crikket/ui/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@crikket/ui/components/ui/select"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@crikket/ui/components/ui/dropdown-menu"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@crikket/ui/components/ui/table"
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@crikket/ui/components/ui/tooltip"
+import { reportNonFatalError } from "@crikket/shared/lib/errors"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { ImageIcon, Loader2, Play } from "lucide-react"
+import {
+  Copy,
+  ImageIcon,
+  Loader2,
+  MessageSquare,
+  MoreHorizontal,
+  PenLine,
+  Play,
+  Trash2,
+} from "lucide-react"
 import type { Route } from "next"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -30,26 +33,27 @@ import type { ReactNode } from "react"
 import * as React from "react"
 import { toast } from "sonner"
 
-import { orpc } from "@/utils/orpc"
+import {
+  AssigneeControl,
+  PriorityControl,
+  StatusControl,
+  TypeControl,
+} from "@/app/s/[id]/_components/ticket-controls"
+import { parseReporterFromDescription } from "@/app/s/[id]/_components/utils"
+import { client, orpc } from "@/utils/orpc"
 import { useBugReportsData } from "../../_hooks/use-bug-reports-data"
 import type { useBugReportsFilters } from "../../_hooks/use-bug-reports-filters"
 import { BugReportsToolbar } from "./bug-reports-toolbar"
-import {
-  formatPriorityLabel,
-  formatStatusLabel,
-  PRIORITY_FILTER_OPTIONS,
-  STATUS_OPTIONS,
-} from "./filters"
-import { StatusPill } from "./status-pill"
+import { STATUS_OPTIONS } from "./filters"
 import type { BugReportListItem } from "./types"
 
 interface BugReportsIssuesTableProps {
   filtersState: ReturnType<typeof useBugReportsFilters>
   viewToggle: ReactNode
   /**
-   * Guest portal mode: no assignee column (the staff directory is not theirs
-   * to see) and status/priority become editable inline, since triage is the
-   * whole reason a guest is here.
+   * Guest portal mode: no assignee/type editing (the staff directory is not
+   * theirs to see, and category is staff-only), but status stays editable —
+   * triage is the whole reason a guest is here.
    */
   guestMode?: boolean
 }
@@ -59,23 +63,8 @@ const STATUS_RANK = new Map(
   STATUS_OPTIONS.map((option, index) => [option.value, index])
 )
 
-const TRAILING_SLASH_RE = /\/$/
-const WHITESPACE_RE = /\s+/
-
 function statusRank(status: BugReportListItem["status"]): number {
   return STATUS_RANK.get(status) ?? STATUS_OPTIONS.length
-}
-
-function hostFromUrl(url: string | undefined): string | null {
-  if (!url) {
-    return null
-  }
-  try {
-    const parsed = new URL(url)
-    return parsed.host + parsed.pathname.replace(TRAILING_SLASH_RE, "")
-  } catch {
-    return url
-  }
 }
 
 function formatRelative(value: string): string {
@@ -103,8 +92,8 @@ function formatRelative(value: string): string {
 }
 
 /**
- * Inline status/priority updates for the guest table. Refetches rather than
- * patching the cache, so a change that the server refuses snaps back.
+ * Inline field updates for a row. Refetches rather than patching the cache, so
+ * a change the server refuses snaps back.
  */
 function useIssueTriage(onSettled: () => Promise<void>) {
   const [pendingId, setPendingId] = React.useState<string | null>(null)
@@ -134,19 +123,16 @@ function useIssueTriage(onSettled: () => Promise<void>) {
   }
 }
 
-/**
- * Compact landscape preview for a table row. Same fixed aspect (video/16:9) and
- * fallback logic as the grid card, so both views read consistently.
- */
+/** Fixed-size 16:9 preview, same source/fallback logic as the grid card. */
 function IssueThumbnail({ report }: { report: BugReportListItem }) {
   const src =
     report.thumbnail ??
     (report.attachmentType === "screenshot" ? report.attachmentUrl : null)
 
   return (
-    <div className="relative aspect-video w-20 shrink-0 overflow-hidden rounded border bg-muted">
+    <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded border bg-muted">
       {src ? (
-        <Image alt="" className="object-cover" fill sizes="80px" src={src} />
+        <Image alt="" className="object-cover" fill sizes="64px" src={src} />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
           {report.attachmentType === "video" ? (
@@ -160,175 +146,230 @@ function IssueThumbnail({ report }: { report: BugReportListItem }) {
   )
 }
 
-function initials(name: string): string {
-  return name
-    .split(WHITESPACE_RE)
-    .map((part) => part.charAt(0))
-    .slice(0, 2)
-    .join("")
-    .toUpperCase()
-}
-
-/** A triage dropdown that doesn't trigger the row's navigation. */
-function TriageSelect<TValue extends string>({
-  value,
-  options,
-  label,
-  width,
-  disabled,
-  onChange,
+/** Reporter name; hovering reveals their email when the viewer may see it. */
+function ReporterLabel({
+  name,
+  email,
 }: {
-  value: TValue
-  options: ReadonlyArray<{ value: TValue; label: string }>
-  label: string
-  width: string
-  disabled: boolean
-  onChange: (value: TValue) => void
+  name: string
+  email: string | null
 }) {
-  return (
-    <Select
-      disabled={disabled}
-      onValueChange={(next) => onChange(next as TValue)}
-      value={value}
-    >
-      <SelectTrigger className={`h-8 ${width}`} size="sm">
-        <SelectValue>{label}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+  const inner = (
+    <span className="inline-flex items-center gap-1">
+      <PenLine aria-hidden className="size-3" />
+      {name}
+    </span>
   )
-}
-
-function AssigneeCell({
-  assigneeId,
-  assignee,
-}: {
-  assigneeId: string | null
-  assignee: { name: string; avatarUrl: string | null } | undefined
-}) {
-  if (!assigneeId) {
-    return <span className="text-muted-foreground text-sm">Unassigned</span>
+  if (!email) {
+    return inner
   }
-
   return (
-    <div className="flex items-center gap-2">
-      <Avatar className="size-6">
-        {assignee?.avatarUrl ? (
-          <AvatarImage alt={assignee.name} src={assignee.avatarUrl} />
-        ) : null}
-        <AvatarFallback>
-          {assignee ? initials(assignee.name) : "?"}
-        </AvatarFallback>
-      </Avatar>
-      <span className="truncate text-sm">{assignee?.name ?? "Unknown"}</span>
-    </div>
+    <Tooltip>
+      <TooltipTrigger render={<span className="cursor-default" />}>
+        {inner}
+      </TooltipTrigger>
+      <TooltipContent>Reported by {email}</TooltipContent>
+    </Tooltip>
   )
 }
 
-function IssueRow({
-  report,
-  assignee,
-  guestMode,
-  isTriaging,
-  onTriage,
-  onOpen,
+/** Row ⋮ menu: copy link (everyone), delete (staff), then refetch the list. */
+function RowActionsMenu({
+  id,
+  canDelete,
+  onDeleted,
 }: {
-  report: BugReportListItem
-  assignee: { name: string; avatarUrl: string | null } | undefined
-  guestMode: boolean
-  isTriaging: boolean
-  onTriage: (input: { id: string } & Partial<BugReportListItem>) => void
-  onOpen: () => void
+  id: string
+  canDelete: boolean
+  onDeleted: () => Promise<unknown>
 }) {
-  const host = hostFromUrl(report.url)
-  // Guests edit inline, so their cells must swallow the row's navigation click.
-  const stopRowNavigation = (event: React.MouseEvent) => {
-    if (guestMode) {
-      event.stopPropagation()
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => client.bugReport.delete({ id }),
+    onSuccess: async () => {
+      toast.success("Ticket deleted")
+      setConfirmOpen(false)
+      await onDeleted()
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to delete ticket")
+    },
+  })
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/s/${id}`)
+      toast.success("Ticket link copied")
+    } catch (error) {
+      reportNonFatalError("Failed to copy ticket link", error)
+      toast.error("Failed to copy link")
     }
   }
 
   return (
-    <TableRow
-      className="cursor-pointer"
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          onOpen()
-        }
-      }}
-      role="button"
-      tabIndex={0}
-    >
-      <TableCell className="w-[92px]">
-        <IssueThumbnail report={report} />
-      </TableCell>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              aria-label="Ticket actions"
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            />
+          }
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onClick={handleCopyLink}>
+            <Copy className="size-4" />
+            Copy ticket link
+          </DropdownMenuItem>
+          {canDelete ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setConfirmOpen(true)}
+                variant="destructive"
+              >
+                <Trash2 className="size-4" />
+                Delete ticket
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <TableCell className="max-w-[420px]">
-        <div className="truncate font-medium" title={report.title}>
-          {report.title || "Untitled issue"}
+      <ConfirmationDialog
+        confirmText="Delete ticket"
+        description="This permanently removes the ticket and its attachments from storage. This cannot be undone."
+        isLoading={deleteMutation.isPending}
+        onConfirm={async () => {
+          await deleteMutation.mutateAsync()
+        }}
+        onOpenChange={setConfirmOpen}
+        open={confirmOpen}
+        title="Delete this ticket?"
+        variant="destructive"
+      />
+    </>
+  )
+}
+
+type TriageUpdate = Parameters<
+  ReturnType<typeof useIssueTriage>["update"]
+>[0]
+
+function IssueRow({
+  report,
+  guestMode,
+  isTriaging,
+  onTriage,
+  onOpen,
+  onChanged,
+}: {
+  report: BugReportListItem
+  guestMode: boolean
+  isTriaging: boolean
+  onTriage: (input: TriageUpdate) => void
+  onOpen: () => void
+  onChanged: () => Promise<unknown>
+}) {
+  // SDK submissions carry the reporter in the description, not a relation, so
+  // fall back to parsing it (same as the ticket detail page).
+  const parsedReporter = parseReporterFromDescription(report.description)
+  const reporterName = report.uploader?.name ?? parsedReporter?.name
+  const reporterEmail = report.reporterEmail ?? parsedReporter?.email ?? null
+
+  return (
+    <div className="flex items-center gap-3 border-b px-3 py-2.5 transition-colors last:border-b-0 hover:bg-muted/40">
+      {/* Thumbnail + title/reporter navigate to the ticket. */}
+      <button
+        aria-label={`Open ${report.title}`}
+        className="shrink-0 cursor-pointer rounded"
+        onClick={onOpen}
+        type="button"
+      >
+        <IssueThumbnail report={report} />
+      </button>
+
+      {/* Icon-only controls, each opening its dropdown/popup. Type and assignee
+          are staff-only (category isn't guest-editable, and guests can't
+          enumerate the staff directory); priority is editable by both. */}
+      <div className="flex shrink-0 items-center">
+        {guestMode ? null : (
+          <TypeControl
+            category={report.category}
+            disabled={isTriaging}
+            editable
+            iconOnly
+            onChange={(category) => onTriage({ id: report.id, category })}
+          />
+        )}
+        {guestMode ? null : (
+          <AssigneeControl
+            assignee={null}
+            assigneeId={report.assigneeId}
+            disabled={isTriaging}
+            editable
+            iconOnly
+            onChange={(assigneeId) => onTriage({ id: report.id, assigneeId })}
+          />
+        )}
+        <PriorityControl
+          disabled={isTriaging}
+          editable
+          iconOnly
+          onChange={(priority) => onTriage({ id: report.id, priority })}
+          priority={report.priority}
+        />
+      </div>
+
+      <button
+        className="min-w-0 flex-1 cursor-pointer text-left"
+        onClick={onOpen}
+        type="button"
+      >
+        <div className="truncate font-medium text-sm" title={report.title}>
+          {report.title || "Untitled ticket"}
         </div>
-        {host ? (
-          <div
-            className="truncate text-muted-foreground text-xs"
-            title={report.url}
-          >
-            {host}
+        {reporterName ? (
+          <div className="truncate text-muted-foreground text-xs">
+            <ReporterLabel email={reporterEmail} name={reporterName} />
           </div>
         ) : null}
-      </TableCell>
+      </button>
 
-      <TableCell onClick={(event) => event.stopPropagation()}>
-        {guestMode ? (
-          <TriageSelect
-            disabled={isTriaging}
-            label={formatStatusLabel(report.status)}
-            onChange={(status) => onTriage({ id: report.id, status })}
-            options={STATUS_OPTIONS}
-            value={report.status}
-            width="w-[150px]"
-          />
-        ) : (
-          <StatusPill
-            disabled={isTriaging}
-            onChange={(status) => onTriage({ id: report.id, status })}
-            status={report.status}
-          />
-        )}
-      </TableCell>
+      {report.commentCount > 0 ? (
+        <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums">
+          <MessageSquare className="size-3.5" />
+          {report.commentCount}
+        </span>
+      ) : null}
 
-      {guestMode ? null : (
-        <TableCell>
-          <AssigneeCell assignee={assignee} assigneeId={report.assigneeId} />
-        </TableCell>
-      )}
+      <div className="shrink-0">
+        <StatusControl
+          disabled={isTriaging}
+          editable
+          onChange={(status) => onTriage({ id: report.id, status })}
+          status={report.status}
+        />
+      </div>
 
-      <TableCell className="text-sm" onClick={stopRowNavigation}>
-        {guestMode ? (
-          <TriageSelect
-            disabled={isTriaging}
-            label={formatPriorityLabel(report.priority)}
-            onChange={(priority) => onTriage({ id: report.id, priority })}
-            options={PRIORITY_FILTER_OPTIONS}
-            value={report.priority}
-            width="w-[130px]"
-          />
-        ) : (
-          formatPriorityLabel(report.priority)
-        )}
-      </TableCell>
-
-      <TableCell className="whitespace-nowrap text-right text-muted-foreground text-sm">
+      <span className="w-16 shrink-0 whitespace-nowrap text-right text-muted-foreground text-xs">
         {formatRelative(report.updatedAt)}
-      </TableCell>
-    </TableRow>
+      </span>
+
+      <div className="shrink-0">
+        <RowActionsMenu
+          canDelete={!guestMode}
+          id={report.id}
+          onDeleted={onChanged}
+        />
+      </div>
+    </div>
   )
 }
 
@@ -355,20 +396,6 @@ export function BugReportsIssuesTable({
   })
 
   const triage = useIssueTriage(refetchAll)
-
-  // The people directory is organization-only; asking for it as a guest just
-  // produces a 403.
-  const peopleQuery = useQuery({
-    ...orpc.people.list.queryOptions(),
-    enabled: !guestMode,
-  })
-  const peopleById = React.useMemo(() => {
-    const map = new Map<string, { name: string; avatarUrl: string | null }>()
-    for (const person of peopleQuery.data ?? []) {
-      map.set(person.id, { name: person.name, avatarUrl: person.avatarUrl })
-    }
-    return map
-  }, [peopleQuery.data])
 
   // Primary order is status (To do → Closed); the toolbar sort acts as the
   // stable secondary order within each status bucket.
@@ -419,7 +446,7 @@ export function BugReportsIssuesTable({
         <div className="space-y-2">
           {["r1", "r2", "r3", "r4", "r5"].map((skeletonKey) => (
             <div
-              className="h-12 w-full animate-pulse rounded-md bg-muted"
+              className="h-14 w-full animate-pulse rounded-md bg-muted"
               key={skeletonKey}
             />
           ))}
@@ -443,37 +470,17 @@ export function BugReportsIssuesTable({
 
       {orderedReports.length > 0 ? (
         <div className="overflow-hidden rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[92px]">
-                  <span className="sr-only">Preview</span>
-                </TableHead>
-                <TableHead>Issue</TableHead>
-                <TableHead>Status</TableHead>
-                {guestMode ? null : <TableHead>Assignee</TableHead>}
-                <TableHead>Priority</TableHead>
-                <TableHead className="text-right">Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orderedReports.map((report) => (
-                <IssueRow
-                  assignee={
-                    report.assigneeId
-                      ? peopleById.get(report.assigneeId)
-                      : undefined
-                  }
-                  guestMode={guestMode}
-                  isTriaging={triage.pendingId === report.id}
-                  key={report.id}
-                  onOpen={() => router.push(`/s/${report.id}` as Route)}
-                  onTriage={triage.update}
-                  report={report}
-                />
-              ))}
-            </TableBody>
-          </Table>
+          {orderedReports.map((report) => (
+            <IssueRow
+              guestMode={guestMode}
+              isTriaging={triage.pendingId === report.id}
+              key={report.id}
+              onChanged={refetchAll}
+              onOpen={() => router.push(`/s/${report.id}` as Route)}
+              onTriage={triage.update}
+              report={report}
+            />
+          ))}
         </div>
       ) : null}
 

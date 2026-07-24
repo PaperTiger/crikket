@@ -23,7 +23,14 @@ import {
 import { Textarea } from "@crikket/ui/components/ui/textarea"
 import { cn } from "@crikket/ui/lib/utils"
 import { useMutation } from "@tanstack/react-query"
-import { ChevronDown, Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import {
+  ChevronDown,
+  CircleDashed,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react"
 import type { Route } from "next"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -191,15 +198,32 @@ function fieldTriggerButton(disabled?: boolean) {
   )
 }
 
+/** Compact icon-only trigger — used in the dense listing rows. */
+function iconTriggerButton(disabled?: boolean, ariaLabel?: string) {
+  return (
+    <Button
+      aria-label={ariaLabel}
+      className="size-8"
+      disabled={disabled}
+      size="icon-sm"
+      type="button"
+      variant="ghost"
+    />
+  )
+}
+
 export function TypeControl({
   category,
   editable,
   disabled = false,
+  iconOnly = false,
   onChange,
 }: {
   category: BugReportCategory | null
   editable: boolean
   disabled?: boolean
+  /** Render just the type icon (dense listing rows). */
+  iconOnly?: boolean
   onChange: (category: BugReportCategory) => void
 }) {
   const active = CATEGORY_FIELD_OPTIONS.find((o) => o.value === category)
@@ -222,11 +246,27 @@ export function TypeControl({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={fieldTriggerButton(disabled)}>
-        <span className="flex min-w-0 items-center gap-1.5 truncate">
-          {value}
-        </span>
-        <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
+      <DropdownMenuTrigger
+        render={
+          iconOnly
+            ? iconTriggerButton(disabled, formatCategoryLabel(category))
+            : fieldTriggerButton(disabled)
+        }
+      >
+        {iconOnly ? (
+          ActiveIcon ? (
+            <ActiveIcon aria-hidden className="size-4" />
+          ) : (
+            <CircleDashed aria-hidden className="size-4 text-muted-foreground" />
+          )
+        ) : (
+          <>
+            <span className="flex min-w-0 items-center gap-1.5 truncate">
+              {value}
+            </span>
+            <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
+          </>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuRadioGroup
@@ -253,11 +293,14 @@ export function PriorityControl({
   priority,
   editable,
   disabled = false,
+  iconOnly = false,
   onChange,
 }: {
   priority: Priority
   editable: boolean
   disabled?: boolean
+  /** Render just the priority icon (dense listing rows). */
+  iconOnly?: boolean
   onChange: (priority: Priority) => void
 }) {
   const active = PRIORITY_FIELD_OPTIONS.find((o) => o.value === priority)
@@ -285,11 +328,30 @@ export function PriorityControl({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={fieldTriggerButton(disabled)}>
-        <span className="flex min-w-0 items-center gap-1.5 truncate">
-          {value}
-        </span>
-        <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
+      <DropdownMenuTrigger
+        render={
+          iconOnly
+            ? iconTriggerButton(disabled, active?.label ?? priority)
+            : fieldTriggerButton(disabled)
+        }
+      >
+        {iconOnly ? (
+          ActiveIcon ? (
+            <ActiveIcon
+              aria-hidden
+              className={cn("size-4", active?.colorClassName)}
+            />
+          ) : (
+            <CircleDashed aria-hidden className="size-4 text-muted-foreground" />
+          )
+        ) : (
+          <>
+            <span className="flex min-w-0 items-center gap-1.5 truncate">
+              {value}
+            </span>
+            <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
+          </>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuRadioGroup
@@ -320,15 +382,28 @@ export function AssigneeControl({
   assigneeId,
   editable,
   disabled = false,
+  iconOnly = false,
   onChange,
 }: {
   assignee: SharedBugReport["assignee"]
   assigneeId: string | null
   editable: boolean
   disabled?: boolean
+  /** Render just the assignee avatar/icon (dense listing rows). */
+  iconOnly?: boolean
   onChange: (assigneeId: string | null) => void
 }) {
   if (editable) {
+    if (iconOnly) {
+      return (
+        <AssigneeCombobox
+          compact
+          disabled={disabled}
+          onChange={onChange}
+          value={assigneeId}
+        />
+      )
+    }
     return (
       <div className="w-[200px]">
         <AssigneeCombobox
