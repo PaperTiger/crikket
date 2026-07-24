@@ -1,11 +1,8 @@
 "use client"
 
 import { useBugReportsFilters } from "../../_hooks/use-bug-reports-filters"
-import { BugReportsGridView } from "./bug-reports-grid-view"
 import { BugReportsGroupedTable } from "./bug-reports-grouped-table"
 import { BugReportsIssuesTable } from "./bug-reports-issues-table"
-import { BugReportsViewToggle } from "./bug-reports-view-toggle"
-import { VIEW_OPTIONS } from "./filters"
 
 interface BugReportsListProps {
   /** When set, pins every view to a single project (project detail page). */
@@ -23,28 +20,15 @@ export function BugReportsList({
 }: BugReportsListProps = {}) {
   const filtersState = useBugReportsFilters({ forcedProjectId })
 
-  const viewToggle = guestMode ? null : (
-    <BugReportsViewToggle
-      onViewChange={filtersState.setView}
-      view={filtersState.view}
-    />
-  )
-
-  // Guests get the issues table only — the grid and the cross-project rollup
-  // both surface organization-wide context they should not have.
+  // The grid view has been retired — everything uses the table now, so there is
+  // no table/grid toggle.
   if (guestMode) {
     return (
       <BugReportsIssuesTable
         filtersState={filtersState}
         guestMode
-        viewToggle={viewToggle}
+        viewToggle={null}
       />
-    )
-  }
-
-  if (filtersState.view === VIEW_OPTIONS.grid) {
-    return (
-      <BugReportsGridView filtersState={filtersState} viewToggle={viewToggle} />
     )
   }
 
@@ -53,17 +37,11 @@ export function BugReportsList({
   // grouped rollup as its table.
   if (forcedProjectId) {
     return (
-      <BugReportsIssuesTable
-        filtersState={filtersState}
-        viewToggle={viewToggle}
-      />
+      <BugReportsIssuesTable filtersState={filtersState} viewToggle={null} />
     )
   }
 
   return (
-    <BugReportsGroupedTable
-      filtersState={filtersState}
-      viewToggle={viewToggle}
-    />
+    <BugReportsGroupedTable filtersState={filtersState} viewToggle={null} />
   )
 }
