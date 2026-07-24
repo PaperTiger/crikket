@@ -21,9 +21,21 @@ import {
   DropdownMenuTrigger,
 } from "@crikket/ui/components/ui/dropdown-menu"
 import { Textarea } from "@crikket/ui/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@crikket/ui/components/ui/tooltip"
 import { cn } from "@crikket/ui/lib/utils"
 import { useMutation } from "@tanstack/react-query"
-import { ChevronDown, Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import {
+  ChevronDown,
+  CircleDashed,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react"
 import type { Route } from "next"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -109,15 +121,10 @@ export function StatusControl({
     isLg && "h-8 gap-2 px-3 text-sm [&>svg]:size-4!",
     colorStyle ? "" : "text-muted-foreground"
   )
-  const dotClassName = cn(
-    "rounded-full bg-current",
-    isLg ? "size-2" : "size-1.5"
-  )
 
   if (!editable) {
     return (
       <span className={pillClassName} style={colorStyle}>
-        <span aria-hidden className={dotClassName} />
         {formatStatusLabel(status)}
       </span>
     )
@@ -138,7 +145,6 @@ export function StatusControl({
           />
         }
       >
-        <span aria-hidden className={dotClassName} />
         {formatStatusLabel(status)}
         <ChevronDown aria-hidden className="opacity-60" />
       </DropdownMenuTrigger>
@@ -191,15 +197,35 @@ function fieldTriggerButton(disabled?: boolean) {
   )
 }
 
+/**
+ * Compact round icon-only trigger — dense listing rows. Avatar-sized (size-6),
+ * outline only (no fill), matching the assignee avatar next to it.
+ */
+function iconTriggerButton(disabled?: boolean, ariaLabel?: string) {
+  return (
+    <Button
+      aria-label={ariaLabel}
+      className="rounded-full border-border"
+      disabled={disabled}
+      size="icon-xs"
+      type="button"
+      variant="ghost"
+    />
+  )
+}
+
 export function TypeControl({
   category,
   editable,
   disabled = false,
+  iconOnly = false,
   onChange,
 }: {
   category: BugReportCategory | null
   editable: boolean
   disabled?: boolean
+  /** Render just the type icon (dense listing rows). */
+  iconOnly?: boolean
   onChange: (category: BugReportCategory) => void
 }) {
   const active = CATEGORY_FIELD_OPTIONS.find((o) => o.value === category)
@@ -220,6 +246,49 @@ export function TypeControl({
     )
   }
 
+  const menuContent = (
+    <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuRadioGroup
+        onValueChange={(next) => {
+          if (next !== category) {
+            onChange(next as BugReportCategory)
+          }
+        }}
+        value={category ?? ""}
+      >
+        {CATEGORY_FIELD_OPTIONS.map((option) => (
+          <DropdownMenuRadioItem key={option.value} value={option.value}>
+            <option.icon aria-hidden className="size-3.5" />
+            {option.label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  )
+
+  if (iconOnly) {
+    return (
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger
+            render={<DropdownMenuTrigger render={iconTriggerButton(disabled)} />}
+          >
+            {ActiveIcon ? (
+              <ActiveIcon aria-hidden className="size-3.5" />
+            ) : (
+              <CircleDashed
+                aria-hidden
+                className="size-3.5 text-muted-foreground"
+              />
+            )}
+          </TooltipTrigger>
+          <TooltipContent>{formatCategoryLabel(category)}</TooltipContent>
+        </Tooltip>
+        {menuContent}
+      </DropdownMenu>
+    )
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={fieldTriggerButton(disabled)}>
@@ -228,23 +297,7 @@ export function TypeControl({
         </span>
         <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuRadioGroup
-          onValueChange={(next) => {
-            if (next !== category) {
-              onChange(next as BugReportCategory)
-            }
-          }}
-          value={category ?? ""}
-        >
-          {CATEGORY_FIELD_OPTIONS.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              <option.icon aria-hidden className="size-3.5" />
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
+      {menuContent}
     </DropdownMenu>
   )
 }
@@ -253,11 +306,14 @@ export function PriorityControl({
   priority,
   editable,
   disabled = false,
+  iconOnly = false,
   onChange,
 }: {
   priority: Priority
   editable: boolean
   disabled?: boolean
+  /** Render just the priority icon (dense listing rows). */
+  iconOnly?: boolean
   onChange: (priority: Priority) => void
 }) {
   const active = PRIORITY_FIELD_OPTIONS.find((o) => o.value === priority)
@@ -283,6 +339,55 @@ export function PriorityControl({
     )
   }
 
+  const menuContent = (
+    <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuRadioGroup
+        onValueChange={(next) => {
+          if (next !== priority) {
+            onChange(next as Priority)
+          }
+        }}
+        value={priority}
+      >
+        {PRIORITY_FIELD_OPTIONS.map((option) => (
+          <DropdownMenuRadioItem key={option.value} value={option.value}>
+            <option.icon
+              aria-hidden
+              className={cn("size-3.5", option.colorClassName)}
+            />
+            {option.label}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  )
+
+  if (iconOnly) {
+    return (
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger
+            render={<DropdownMenuTrigger render={iconTriggerButton(disabled)} />}
+          >
+            {ActiveIcon ? (
+              <ActiveIcon
+                aria-hidden
+                className={cn("size-3.5", active?.colorClassName)}
+              />
+            ) : (
+              <CircleDashed
+                aria-hidden
+                className="size-3.5 text-muted-foreground"
+              />
+            )}
+          </TooltipTrigger>
+          <TooltipContent>{active?.label ?? priority}</TooltipContent>
+        </Tooltip>
+        {menuContent}
+      </DropdownMenu>
+    )
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={fieldTriggerButton(disabled)}>
@@ -291,26 +396,7 @@ export function PriorityControl({
         </span>
         <ChevronDown aria-hidden className="size-3.5 shrink-0 opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuRadioGroup
-          onValueChange={(next) => {
-            if (next !== priority) {
-              onChange(next as Priority)
-            }
-          }}
-          value={priority}
-        >
-          {PRIORITY_FIELD_OPTIONS.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              <option.icon
-                aria-hidden
-                className={cn("size-3.5", option.colorClassName)}
-              />
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
+      {menuContent}
     </DropdownMenu>
   )
 }
@@ -320,15 +406,28 @@ export function AssigneeControl({
   assigneeId,
   editable,
   disabled = false,
+  iconOnly = false,
   onChange,
 }: {
   assignee: SharedBugReport["assignee"]
   assigneeId: string | null
   editable: boolean
   disabled?: boolean
+  /** Render just the assignee avatar/icon (dense listing rows). */
+  iconOnly?: boolean
   onChange: (assigneeId: string | null) => void
 }) {
   if (editable) {
+    if (iconOnly) {
+      return (
+        <AssigneeCombobox
+          compact
+          disabled={disabled}
+          onChange={onChange}
+          value={assigneeId}
+        />
+      )
+    }
     return (
       <div className="w-[200px]">
         <AssigneeCombobox
