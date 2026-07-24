@@ -342,10 +342,12 @@ function IssueRow({
         ) : null}
       </button>
 
+      {/* -translate-y-px nudges the metadata up 1px so it reads as centered
+          against the title rather than sitting a hair low. */}
       {report.commentCount > 0 ? (
         <button
           aria-label={`${report.commentCount} comments — open ticket`}
-          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground text-xs tabular-nums transition-colors hover:bg-muted hover:text-foreground"
+          className="-translate-y-px flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground text-xs tabular-nums transition-colors hover:bg-muted hover:text-foreground"
           onClick={onOpen}
           type="button"
         >
@@ -354,7 +356,7 @@ function IssueRow({
         </button>
       ) : null}
 
-      <div className="shrink-0">
+      <div className="-translate-y-px shrink-0">
         <StatusControl
           disabled={isTriaging}
           editable
@@ -363,11 +365,11 @@ function IssueRow({
         />
       </div>
 
-      <span className="w-16 shrink-0 whitespace-nowrap text-right text-muted-foreground text-xs">
+      <span className="-translate-y-px w-16 shrink-0 whitespace-nowrap text-right text-muted-foreground text-xs">
         {formatRelative(report.updatedAt)}
       </span>
 
-      <div className="shrink-0">
+      <div className="-translate-y-px shrink-0">
         <RowActionsMenu
           canDelete={!guestMode}
           id={report.id}
