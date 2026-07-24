@@ -18,9 +18,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         enableSystem
       >
         <QueryClientProvider client={queryClient}>
-          {/* Delay so tooltips only appear once you settle on an element,
-              rather than flashing as the cursor passes over. */}
-          <TooltipProvider delay={600}>
+          {/* Delay so tooltips only appear once you settle on an element.
+              timeout={0} disables base-ui's grouping, so every tooltip waits
+              the full delay each time instead of the next one opening instantly
+              as the cursor moves between adjacent triggers. */}
+          <TooltipProvider delay={600} timeout={0}>
             {children}
             <ReactQueryDevtools />
           </TooltipProvider>
